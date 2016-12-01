@@ -282,6 +282,68 @@ lit_utf8_string_length (const lit_utf8_byte_t *utf8_buf_p, /**< utf-8 string */
 } /* lit_utf8_string_length */
 
 /**
+ * Calculate the required size of an utf-8 encoded string from cesu-8 encoded string
+ *
+ * @return size of an utf-8 encoded string
+ */
+lit_utf8_size_t
+lit_get_utf8_size_of_cesu8_string (const lit_utf8_byte_t *cesu8_buf_p, /**< cesu-8 string */
+                                   lit_utf8_size_t cesu8_buf_size) /**< string size */
+{
+  lit_utf8_size_t offset = 0;
+  lit_utf8_size_t utf8_buf_size = cesu8_buf_size;
+  ecma_char_t prev_ch = 0;
+
+  while (offset < cesu8_buf_size)
+  {
+    ecma_char_t ch;
+    offset += lit_read_code_unit_from_utf8 (cesu8_buf_p + offset, &ch);
+
+    if (lit_is_code_point_utf16_low_surrogate (ch) && lit_is_code_point_utf16_high_surrogate (prev_ch))
+    {
+      utf8_buf_size -= 2;
+    }
+
+    prev_ch = ch;
+  }
+
+  JERRY_ASSERT (offset == cesu8_buf_size);
+
+  return utf8_buf_size;
+} /* lit_get_utf8_size_of_cesu8_string */
+
+/**
+ * Calculate length of an utf-8 encoded string from cesu-8 encoded string
+ *
+ * @return length of an utf-8 encoded string
+ */
+ecma_length_t
+lit_get_utf8_length_of_cesu8_string (const lit_utf8_byte_t *cesu8_buf_p, /**< cesu-8 string */
+                                     lit_utf8_size_t cesu8_buf_size) /**< string size */
+{
+  lit_utf8_size_t offset = 0;
+  ecma_length_t utf8_length = 0;
+  ecma_char_t prev_ch = 0;
+
+  while (offset < cesu8_buf_size)
+  {
+    ecma_char_t ch;
+    offset += lit_read_code_unit_from_utf8 (cesu8_buf_p + offset, &ch);
+
+    if (!lit_is_code_point_utf16_low_surrogate (ch) || !lit_is_code_point_utf16_high_surrogate (prev_ch))
+    {
+      utf8_length++;
+    }
+
+    prev_ch = ch;
+  }
+
+  JERRY_ASSERT (offset == cesu8_buf_size);
+
+  return utf8_length;
+} /* lit_get_utf8_length_of_cesu8_string */
+
+/**
  * Decodes a unicode code point from non-empty utf-8-encoded buffer
  *
  * @return number of bytes occupied by code point in the string
@@ -507,7 +569,7 @@ lit_utf8_string_hash_combine (lit_string_hash_t hash_basis, /**< hash to be comb
 
   for (uint32_t i = 0; i < utf8_buf_size; i++)
   {
-    // 16777619 is 32 bit FNV_prime = 2^24 + 2^8 + 0x93 = 16777619
+    /* 16777619 is 32 bit FNV_prime = 2^24 + 2^8 + 0x93 = 16777619 */
     hash = (hash ^ utf8_buf_p[i]) * 16777619;
   }
 
@@ -525,7 +587,7 @@ lit_utf8_string_calc_hash (const lit_utf8_byte_t *utf8_buf_p, /**< characters bu
 {
   JERRY_ASSERT (utf8_buf_p != NULL || utf8_buf_size == 0);
 
-  // 32 bit offset_basis for FNV = 2166136261
+  /* 32 bit offset_basis for FNV = 2166136261 */
   return lit_utf8_string_hash_combine ((lit_string_hash_t) 2166136261, utf8_buf_p, utf8_buf_size);
 } /* lit_utf8_string_calc_hash */
 

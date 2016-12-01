@@ -12,12 +12,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef _JERRYSCRIPT_MBED_DRIVERS_SET_INTERVAL_H
-#define _JERRYSCRIPT_MBED_DRIVERS_SET_INTERVAL_H
+#ifndef _JERRYSCRIPT_MBED_DRIVERS_ANALOGIN_H
+#define _JERRYSCRIPT_MBED_DRIVERS_ANALOGIN_H
 
 #include "jerryscript-mbed-library-registry/wrap_tools.h"
 
-DECLARE_GLOBAL_FUNCTION(setInterval);
-DECLARE_GLOBAL_FUNCTION(clearInterval);
+DECLARE_CLASS_CONSTRUCTOR(AnalogIn);
 
-#endif  // _JERRYSCRIPT_MBED_DRIVERS_SET_INTERVAL_H
+#endif  // _JERRYSCRIPT_MBED_DRIVERS_ANALOGIN_H
