@@ -19,6 +19,9 @@ IRC channel: #jerryscript on [freenode](https://freenode.net)
 Mailing list: jerryscript-dev@gna.org, you can subscribe [here](https://mail.gna.org/listinfo/jerryscript-dev) and access the mailing list archive [here](https://mail.gna.org/public/jerryscript-dev).
 
 ## Quick Start
+### Merging Upstream Changes
+To merge upstream changes, visit: https://github.com/SomaticLabs/jerryscript/compare/master...jerryscript-project:master
+
 ### Getting the sources
 ```bash
 git clone https://github.com/jerryscript-project/jerryscript.git
