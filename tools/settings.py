@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
-# Copyright 2016 Samsung Electronics Co., Ltd.
-# Copyright 2016 University of Szeged.
+# Copyright JS Foundation and other contributors, http://js.foundation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,6 +21,7 @@ PROJECT_DIR = path.normpath(path.join(TOOLS_DIR, '..'))
 JERRY_TESTS_DIR = path.join(PROJECT_DIR, 'tests/jerry')
 JERRY_TEST_SUITE_DIR = path.join(PROJECT_DIR, 'tests/jerry-test-suite')
 JERRY_TEST_SUITE_MINIMAL_LIST = path.join(PROJECT_DIR, 'tests/jerry-test-suite/minimal-profile-list')
+JERRY_TEST_SUITE_ES51_LIST = path.join(PROJECT_DIR, 'tests/jerry-test-suite/es51-profile-list')
 TEST262_TEST_SUITE_DIR = path.join(PROJECT_DIR, 'tests/test262')
 
 BUILD_SCRIPT = path.join(TOOLS_DIR, 'build.py')

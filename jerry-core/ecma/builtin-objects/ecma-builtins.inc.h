@@ -1,4 +1,4 @@
-/* Copyright 2014-2016 Samsung Electronics Co., Ltd.
+/* Copyright JS Foundation and other contributors, http://js.foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -297,6 +297,25 @@ BUILTIN (ECMA_BUILTIN_ID_TYPE_ERROR_THROWER,
          false,
          true,
          type_error_thrower)
+
+#ifndef CONFIG_DISABLE_ARRAYBUFFER_BUILTIN
+
+/* The ArrayBuffer.prototype object (ES2015 24.1.4) */
+BUILTIN (ECMA_BUILTIN_ID_ARRAYBUFFER_PROTOTYPE,
+         ECMA_OBJECT_TYPE_GENERAL,
+         ECMA_BUILTIN_ID_OBJECT_PROTOTYPE,
+         true,
+         true,
+         arraybuffer_prototype)
+
+/* The ArrayBuffer object (ES2015 24.1.2) */
+BUILTIN (ECMA_BUILTIN_ID_ARRAYBUFFER,
+         ECMA_OBJECT_TYPE_FUNCTION,
+         ECMA_BUILTIN_ID_FUNCTION_PROTOTYPE,
+         true,
+         true,
+         arraybuffer)
+#endif /* !CONFIG_DISABLE_ARRAYBUFFER_BUILTIN */
 
 /* The Global object (15.1) */
 BUILTIN (ECMA_BUILTIN_ID_GLOBAL,

@@ -1,4 +1,4 @@
-/* Copyright 2014-2016 Samsung Electronics Co., Ltd.
+/* Copyright JS Foundation and other contributors, http://js.foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -57,7 +57,7 @@ ecma_op_create_boolean_object (ecma_value_t arg) /**< argument passed to the Boo
 
   ecma_extended_object_t *ext_object_p = (ecma_extended_object_t *) object_p;
   ext_object_p->u.class_prop.class_id = LIT_MAGIC_STRING_BOOLEAN_UL;
-  ext_object_p->u.class_prop.value = ecma_make_boolean_value (boolean_value);
+  ext_object_p->u.class_prop.u.value = ecma_make_boolean_value (boolean_value);
 
   return ecma_make_object_value (object_p);
 } /* ecma_op_create_boolean_object */

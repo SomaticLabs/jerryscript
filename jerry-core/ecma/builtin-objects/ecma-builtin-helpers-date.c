@@ -1,5 +1,4 @@
-/* Copyright 2015-2016 Samsung Electronics Co., Ltd.
- * Copyright 2015-2016 University of Szeged.
+/* Copyright JS Foundation and other contributors, http://js.foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -432,7 +431,8 @@ ecma_date_week_day (ecma_number_t time) /**< time value */
     return time; /* time is NaN */
   }
 
-  return (ecma_number_t) fmod ((ecma_date_day (time) + 4), 7);
+  ecma_number_t week_day = (ecma_number_t) fmod ((ecma_date_day (time) + 4), 7);
+  return (week_day < 0) ? 7 + week_day : week_day;
 } /* ecma_date_week_day */
 
 /**
@@ -752,45 +752,19 @@ ecma_date_make_day (ecma_number_t year, /**< year value */
 
   /* 7. */
   ecma_number_t time = ecma_date_time_from_year (ym);
-  int32_t step = 182;
-  int32_t delta = step;
 
   /**
    * The algorithm below searches the following date: ym-mn-1
    * To find this time it starts from the beggining of the year (ym)
-   * then increase it by ECMA_DATE_MS_PER_DAY until it reaches the
-   * right date.
+   * then find the first day of the month.
    */
   if (ecma_date_year_from_time (time) == ym)
   {
-    /**
-     * Binary search to get the closest day in the previous month.
-     * It has to use integer days so sometimes the found time
-     * needs some more increasing which is done day by day below.
-     */
-    while (delta)
-    {
-      if (ecma_date_month_from_time (time + step * ECMA_DATE_MS_PER_DAY) < mn)
-      {
-        step += delta;
-      }
-      else
-      {
-        step -= delta;
-      }
-      delta = delta / 2;
-    }
-
-    if (ecma_date_month_from_time (time + step) < mn)
-    {
-      time += step * ECMA_DATE_MS_PER_DAY;
-    }
+    /* Get the month */
+    time += 31 * mn * ECMA_DATE_MS_PER_DAY;
 
     /* Get the month's first day */
-    while (ecma_date_month_from_time (time) < mn)
-    {
-      time += ECMA_DATE_MS_PER_DAY;
-    }
+    time += ((ecma_number_t) 1.0 - ecma_date_date_from_time (time)) * ECMA_DATE_MS_PER_DAY;
 
     if (ecma_date_month_from_time (time) == mn && ecma_date_date_from_time (time) == 1)
     {
@@ -900,7 +874,7 @@ ecma_date_set_internal_property (ecma_value_t this_arg, /**< this argument */
   ecma_object_t *object_p = ecma_get_object_from_value (this_arg);
   ecma_extended_object_t *ext_object_p = (ecma_extended_object_t *) object_p;
 
-  *ECMA_GET_INTERNAL_VALUE_POINTER (ecma_number_t, ext_object_p->u.class_prop.value) = value;
+  *ECMA_GET_INTERNAL_VALUE_POINTER (ecma_number_t, ext_object_p->u.class_prop.u.value) = value;
 
   return ecma_make_number_value (value);
 } /* ecma_date_set_internal_property */
@@ -1300,7 +1274,7 @@ ecma_date_get_primitive_value (ecma_value_t this_arg) /**< this argument */
     ecma_extended_object_t *ext_object_p = (ecma_extended_object_t *) object_p;
 
     ecma_number_t date_num = *ECMA_GET_INTERNAL_VALUE_POINTER (ecma_number_t,
-                                                               ext_object_p->u.class_prop.value);
+                                                               ext_object_p->u.class_prop.u.value);
 
     ret_value = ecma_make_number_value (date_num);
   }

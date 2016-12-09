@@ -1,5 +1,4 @@
-/* Copyright 2015-2016 Samsung Electronics Co., Ltd.
- * Copyright 2015-2016 University of Szeged.
+/* Copyright JS Foundation and other contributors, http://js.foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +14,8 @@
  */
 
 #include "js-parser-internal.h"
+
+#ifndef JERRY_DISABLE_PARSER
 
 /** \addtogroup parser Parser
  * @{
@@ -938,3 +939,5 @@ parser_error_to_string (parser_error_t error) /**< error code */
  * @}
  * @}
  */
+
+#endif /* !JERRY_DISABLE_PARSER */

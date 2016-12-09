@@ -1,5 +1,4 @@
-/* Copyright 2014-2016 Samsung Electronics Co., Ltd.
- * Copyright 2016 University of Szeged.
+/* Copyright JS Foundation and other contributors, http://js.foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -203,11 +202,9 @@ ecma_gc_mark_property (ecma_property_t *property_p) /**< property */
       {
         case ECMA_INTERNAL_PROPERTY_NATIVE_HANDLE: /* an external pointer */
         case ECMA_INTERNAL_PROPERTY_FREE_CALLBACK: /* an object's native free callback */
-        case ECMA_INTERNAL_PROPERTY_INSTANTIATED_MASK_32_63: /* an integer (bit-mask) */
         {
           break;
         }
-
         default:
         {
           JERRY_ASSERT (ECMA_PROPERTY_GET_INTERNAL_PROPERTY_TYPE (property_p) == ECMA_SPECIAL_PROPERTY_DELETED
@@ -406,6 +403,26 @@ ecma_gc_sweep (ecma_object_t *object_p) /**< object to free */
   {
     ecma_object_type_t object_type = ecma_get_object_type (object_p);
 
+    size_t ext_object_size = sizeof (ecma_extended_object_t);
+
+    if (ecma_get_object_is_builtin (object_p))
+    {
+      uint8_t length_and_bitset_size;
+
+      if (object_type == ECMA_OBJECT_TYPE_CLASS
+          || object_type == ECMA_OBJECT_TYPE_ARRAY)
+      {
+        ext_object_size = sizeof (ecma_extended_built_in_object_t);
+        length_and_bitset_size = ((ecma_extended_built_in_object_t *) object_p)->built_in.length_and_bitset_size;
+      }
+      else
+      {
+        length_and_bitset_size = ((ecma_extended_object_t *) object_p)->u.built_in.length_and_bitset_size;
+      }
+
+      ext_object_size += (2 * sizeof (uint32_t)) * (length_and_bitset_size >> ECMA_BUILT_IN_BITSET_SHIFT);
+    }
+
     if (object_type == ECMA_OBJECT_TYPE_CLASS)
     {
       ecma_extended_object_t *ext_object_p = (ecma_extended_object_t *) object_p;
@@ -424,14 +441,14 @@ ecma_gc_sweep (ecma_object_t *object_p) /**< object to free */
         case LIT_MAGIC_STRING_STRING_UL:
         case LIT_MAGIC_STRING_NUMBER_UL:
         {
-          ecma_free_value (ext_object_p->u.class_prop.value);
+          ecma_free_value (ext_object_p->u.class_prop.u.value);
           break;
         }
 
         case LIT_MAGIC_STRING_DATE_UL:
         {
           ecma_number_t *num_p = ECMA_GET_INTERNAL_VALUE_POINTER (ecma_number_t,
-                                                                  ext_object_p->u.class_prop.value);
+                                                                  ext_object_p->u.class_prop.u.value);
           ecma_dealloc_number (num_p);
           break;
         }
@@ -439,14 +456,22 @@ ecma_gc_sweep (ecma_object_t *object_p) /**< object to free */
         case LIT_MAGIC_STRING_REGEXP_UL:
         {
           ecma_compiled_code_t *bytecode_p = ECMA_GET_INTERNAL_VALUE_POINTER (ecma_compiled_code_t,
-                                                                              ext_object_p->u.class_prop.value);
+                                                                              ext_object_p->u.class_prop.u.value);
           if (bytecode_p != NULL)
           {
             ecma_bytecode_deref (bytecode_p);
           }
           break;
         }
-
+#ifndef CONFIG_DISABLE_ARRAYBUFFER_BUILTIN
+        case LIT_MAGIC_STRING_ARRAY_BUFFER_UL:
+        {
+          ecma_length_t arraybuffer_length = ext_object_p->u.class_prop.u.length;
+          size_t size = sizeof (ecma_extended_object_t) + arraybuffer_length;
+          ecma_dealloc_extended_object ((ecma_extended_object_t *) object_p, size);
+          return;
+        }
+#endif /* CONFIG_DISABLE_ARRAYBUFFER_BUILTIN */
         default:
         {
           JERRY_UNREACHABLE ();
@@ -454,25 +479,15 @@ ecma_gc_sweep (ecma_object_t *object_p) /**< object to free */
         }
       }
 
-      size_t size = (ecma_get_object_is_builtin (object_p) ? sizeof (ecma_extended_built_in_object_t)
-                                                           : sizeof (ecma_extended_object_t));
-      ecma_dealloc_extended_object ((ecma_extended_object_t *) object_p, size);
-      return;
-    }
-
-    if (object_type == ECMA_OBJECT_TYPE_ARRAY)
-    {
-      size_t size = (ecma_get_object_is_builtin (object_p) ? sizeof (ecma_extended_built_in_object_t)
-                                                           : sizeof (ecma_extended_object_t));
-
-      ecma_dealloc_extended_object ((ecma_extended_object_t *) object_p, size);
+      ecma_dealloc_extended_object ((ecma_extended_object_t *) object_p, ext_object_size);
       return;
     }
 
     if (ecma_get_object_is_builtin (object_p)
+        || object_type == ECMA_OBJECT_TYPE_ARRAY
         || object_type == ECMA_OBJECT_TYPE_EXTERNAL_FUNCTION)
     {
-      ecma_dealloc_extended_object ((ecma_extended_object_t *) object_p, sizeof (ecma_extended_object_t));
+      ecma_dealloc_extended_object ((ecma_extended_object_t *) object_p, ext_object_size);
       return;
     }
 

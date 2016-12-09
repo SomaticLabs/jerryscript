@@ -1,5 +1,4 @@
-/* Copyright 2015-2016 Samsung Electronics Co., Ltd.
- * Copyright 2015-2016 University of Szeged.
+/* Copyright JS Foundation and other contributors, http://js.foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -553,7 +552,7 @@ ecma_builtin_date_dispatch_construct (const ecma_value_t *arguments_list_p, /**<
 
     ecma_number_t *date_num_p = ecma_alloc_number ();
     *date_num_p = prim_value_num;
-    ECMA_SET_INTERNAL_VALUE_POINTER (ext_object_p->u.class_prop.value, date_num_p);
+    ECMA_SET_INTERNAL_VALUE_POINTER (ext_object_p->u.class_prop.u.value, date_num_p);
 
     ret_value = ecma_make_object_value (obj_p);
   }

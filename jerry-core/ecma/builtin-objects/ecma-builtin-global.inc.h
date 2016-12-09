@@ -1,4 +1,4 @@
-/* Copyright 2014-2016 Samsung Electronics Co., Ltd.
+/* Copyright JS Foundation and other contributors, http://js.foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -168,6 +168,12 @@ OBJECT_VALUE (LIT_MAGIC_STRING_JSON_U,
               ECMA_PROPERTY_CONFIGURABLE_WRITABLE)
 #endif /* !CONFIG_DISABLE_JSON_BUILTIN */
 
+#ifndef CONFIG_DISABLE_ARRAYBUFFER_BUILTIN
+OBJECT_VALUE (LIT_MAGIC_STRING_ARRAY_BUFFER_UL,
+              ECMA_BUILTIN_ID_ARRAYBUFFER,
+              ECMA_PROPERTY_CONFIGURABLE_WRITABLE)
+#endif /* !CONFIG_DISABLE_ARRAYBUFFER_BUILTIN */
+
 /* Routine properties:
  *  (property name, C routine name, arguments number or NON_FIXED, value of the routine's length property) */
 
@@ -195,3 +201,5 @@ ROUTINE (LIT_MAGIC_STRING_UNESCAPE, ecma_builtin_global_object_unescape, 1, 1)
 #undef STRING_VALUE
 #undef OBJECT_VALUE
 #undef ROUTINE
+#undef ACCESSOR_READ_WRITE
+#undef ACCESSOR_READ_ONLY

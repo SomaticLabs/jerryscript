@@ -1,5 +1,4 @@
-/* Copyright 2014-2016 Samsung Electronics Co., Ltd.
- * Copyright 2016 University of Szeged.
+/* Copyright JS Foundation and other contributors, http://js.foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -554,7 +553,7 @@ ecma_concat_ecma_strings (ecma_string_t *string1_p, /**< first ecma-string */
 
       utf8_string1_p = lit_get_magic_string_ex_utf8 (string1_p->u.magic_string_id);
       utf8_string1_size = lit_get_magic_string_ex_size (string1_p->u.magic_string_id);
-      utf8_string1_length = utf8_string1_size;
+      utf8_string1_length = lit_utf8_string_length (utf8_string1_p, utf8_string1_size);
       string1_rehash_needed = true;
       break;
     }
@@ -600,7 +599,7 @@ ecma_concat_ecma_strings (ecma_string_t *string1_p, /**< first ecma-string */
 
       utf8_string2_p = lit_get_magic_string_ex_utf8 (string2_p->u.magic_string_id);
       utf8_string2_size = lit_get_magic_string_ex_size (string2_p->u.magic_string_id);
-      utf8_string2_length = utf8_string2_size;
+      utf8_string2_length = lit_utf8_string_length (utf8_string2_p, utf8_string2_size);
       break;
     }
   }
@@ -1035,12 +1034,10 @@ ecma_string_raw_chars (const ecma_string_t *string_p, /**< ecma-string */
       JERRY_ASSERT (ECMA_STRING_GET_CONTAINER (string_p) == ECMA_STRING_CONTAINER_MAGIC_STRING_EX);
 
       size = lit_get_magic_string_ex_size (string_p->u.magic_string_ex_id);
-      length = size;
+      length = lit_utf8_string_length (lit_get_magic_string_ex_utf8 (string_p->u.magic_string_ex_id),
+                                       lit_get_magic_string_ex_size (string_p->u.magic_string_ex_id));
 
       result_p = lit_get_magic_string_ex_utf8 (string_p->u.magic_string_ex_id);
-
-      /* All extended magic strings must be ascii strings. */
-      JERRY_ASSERT (ECMA_STRING_IS_ASCII (result_p, size));
       break;
     }
   }
@@ -1472,9 +1469,8 @@ ecma_string_get_length (const ecma_string_t *string_p) /**< ecma-string */
     {
       JERRY_ASSERT (ECMA_STRING_GET_CONTAINER (string_p) == ECMA_STRING_CONTAINER_MAGIC_STRING_EX);
 
-      JERRY_ASSERT (ECMA_STRING_IS_ASCII (lit_get_magic_string_ex_utf8 (string_p->u.magic_string_ex_id),
-                                          lit_get_magic_string_ex_size (string_p->u.magic_string_ex_id)));
-      return lit_get_magic_string_ex_size (string_p->u.magic_string_ex_id);
+      return lit_utf8_string_length (lit_get_magic_string_ex_utf8 (string_p->u.magic_string_ex_id),
+                                     lit_get_magic_string_ex_size (string_p->u.magic_string_ex_id));
     }
   }
 } /* ecma_string_get_length */

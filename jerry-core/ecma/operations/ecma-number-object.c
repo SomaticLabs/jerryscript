@@ -1,4 +1,4 @@
-/* Copyright 2014-2016 Samsung Electronics Co., Ltd.
+/* Copyright JS Foundation and other contributors, http://js.foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -64,7 +64,7 @@ ecma_op_create_number_object (ecma_value_t arg) /**< argument passed to the Numb
   ext_object_p->u.class_prop.class_id = LIT_MAGIC_STRING_NUMBER_UL;
 
   /* Pass reference (no need to free conv_to_num_completion). */
-  ext_object_p->u.class_prop.value = conv_to_num_completion;
+  ext_object_p->u.class_prop.u.value = conv_to_num_completion;
 
   return ecma_make_object_value (object_p);
 } /* ecma_op_create_number_object */

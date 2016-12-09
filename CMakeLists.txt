@@ -1,5 +1,4 @@
-# Copyright 2015-2016 Samsung Electronics Co., Ltd.
-# Copyright 2016 University of Szeged.
+# Copyright JS Foundation and other contributors, http://js.foundation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,17 +23,18 @@ string(TOUPPER "${PLATFORM}" PLATFORM)
 set(CMAKE_SHARED_LIBRARY_LINK_C_FLAGS )
 
 # Components
-set(JERRY_LIBC    ON  CACHE BOOL "Build and use jerry-libc?")
-set(JERRY_LIBM    ON  CACHE BOOL "Build and use jerry-libm?")
-set(JERRY_CMDLINE ON  CACHE BOOL "Build jerry command line tool?")
-set(UNITTESTS     OFF CACHE BOOL "Build unit tests?")
+set(JERRY_CMDLINE         ON  CACHE BOOL "Build jerry command line tool?")
+set(JERRY_CMDLINE_MINIMAL OFF CACHE BOOL "Build jerry minimal command line tool?")
+set(JERRY_LIBC            ON  CACHE BOOL "Build and use jerry-libc?")
+set(JERRY_LIBM            ON  CACHE BOOL "Build and use jerry-libm?")
+set(UNITTESTS             OFF CACHE BOOL "Build unit tests?")
 
 # Optional build settings
-set(PORT_DIR                  "${CMAKE_SOURCE_DIR}/targets/default" CACHE STRING "Use default or external port?")
-set(ENABLE_LTO                ON                                    CACHE BOOL   "Enable LTO build?")
 set(ENABLE_ALL_IN_ONE         OFF                                   CACHE BOOL   "Enable all-in-one build?")
-set(ENABLE_STRIP              ON                                    CACHE BOOL   "Enable stripping all symbols from release binary?")
+set(ENABLE_LTO                ON                                    CACHE BOOL   "Enable LTO build?")
 set(ENABLE_STATIC_LINK        ON                                    CACHE BOOL   "Enable static linking?")
+set(ENABLE_STRIP              ON                                    CACHE BOOL   "Enable stripping all symbols from release binary?")
+set(PORT_DIR                  "${CMAKE_SOURCE_DIR}/targets/default" CACHE STRING "Use default or external port?")
 
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE "Release")
@@ -49,18 +49,19 @@ if("${PLATFORM}" STREQUAL "DARWIN")
 endif()
 
 # Status messages
+message(STATUS "CMAKE_BUILD_TYPE          " ${CMAKE_BUILD_TYPE})
 message(STATUS "CMAKE_SYSTEM_NAME         " ${CMAKE_SYSTEM_NAME})
 message(STATUS "CMAKE_SYSTEM_PROCESSOR    " ${CMAKE_SYSTEM_PROCESSOR})
-message(STATUS "CMAKE_BUILD_TYPE          " ${CMAKE_BUILD_TYPE})
+message(STATUS "ENABLE_ALL_IN_ONE         " ${ENABLE_ALL_IN_ONE})
+message(STATUS "ENABLE_LTO                " ${ENABLE_LTO})
+message(STATUS "ENABLE_STATIC_LINK        " ${ENABLE_STATIC_LINK})
+message(STATUS "ENABLE_STRIP              " ${ENABLE_STRIP})
+message(STATUS "JERRY_CMDLINE             " ${JERRY_CMDLINE})
+message(STATUS "JERRY_CMDLINE_MINIMAL     " ${JERRY_CMDLINE_MINIMAL})
 message(STATUS "JERRY_LIBC                " ${JERRY_LIBC})
 message(STATUS "JERRY_LIBM                " ${JERRY_LIBM})
-message(STATUS "JERRY_CMDLINE             " ${JERRY_CMDLINE})
-message(STATUS "UNITTESTS                 " ${UNITTESTS})
 message(STATUS "PORT_DIR                  " ${PORT_DIR})
-message(STATUS "ENABLE_LTO                " ${ENABLE_LTO})
-message(STATUS "ENABLE_ALL_IN_ONE         " ${ENABLE_ALL_IN_ONE})
-message(STATUS "ENABLE_STRIP              " ${ENABLE_STRIP})
-message(STATUS "ENABLE_STATIC_LINK        " ${ENABLE_STATIC_LINK})
+message(STATUS "UNITTESTS                 " ${UNITTESTS})
 
 # Setup directories
 # Project binary dir
@@ -194,7 +195,7 @@ endif()
 add_subdirectory(jerry-core)
 
 # Jerry command line tool
-if(JERRY_CMDLINE)
+if(JERRY_CMDLINE OR JERRY_CMDLINE_MINIMAL)
   add_subdirectory(jerry-main)
 endif()
 

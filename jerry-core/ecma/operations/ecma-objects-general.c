@@ -1,5 +1,4 @@
-/* Copyright 2014-2016 Samsung Electronics Co., Ltd.
- * Copyright 2016 University of Szeged.
+/* Copyright JS Foundation and other contributors, http://js.foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -384,7 +383,8 @@ ecma_op_general_object_define_own_property (ecma_object_t *object_p, /**< the ob
                                            property_name_p,
                                            property_desc_p->get_p,
                                            property_desc_p->set_p,
-                                           prop_attributes);
+                                           prop_attributes,
+                                           NULL);
     }
 
     return ecma_make_simple_value (ECMA_SIMPLE_VALUE_TRUE);

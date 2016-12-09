@@ -1,5 +1,4 @@
-# Copyright 2015-2016 Samsung Electronics Co., Ltd.
-# Copyright 2016 University of Szeged.
+# Copyright JS Foundation and other contributors, http://js.foundation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,31 +17,33 @@ set(JERRY_CORE_NAME jerry-core)
 project (${JERRY_CORE_NAME} C)
 
 # Optional features
-set(FEATURE_PROFILE         "full" CACHE STRING "Profile types: full, minimal")
+set(FEATURE_CPOINTER_32_BIT OFF    CACHE BOOL   "Enable 32 bit compressed pointers?")
 set(FEATURE_ERROR_MESSAGES  OFF    CACHE BOOL   "Enable error messages?")
+set(FEATURE_MEM_STATS       OFF    CACHE BOOL   "Enable memory statistics?")
+set(FEATURE_MEM_STRESS_TEST OFF    CACHE BOOL   "Enable mem-stress test?")
+set(FEATURE_PARSER_DISABLE  OFF    CACHE BOOL   "Disable the parser and 'eval' and use only snapshots?")
+set(FEATURE_PARSER_DUMP     OFF    CACHE BOOL   "Enable parser byte-code dumps?")
+set(FEATURE_PROFILE         "es5.1" CACHE STRING "Profile types: es5.1, minimal, es2015-subset")
+set(FEATURE_REGEXP_DUMP     OFF    CACHE BOOL   "Enable regexp byte-code dumps?")
+set(FEATURE_SNAPSHOT_EXEC   OFF    CACHE BOOL   "Enable executing snapshot files?")
+set(FEATURE_SNAPSHOT_SAVE   OFF    CACHE BOOL   "Enable saving snapshot files?")
 set(FEATURE_VALGRIND        OFF    CACHE BOOL   "Enable Valgrind support?")
 set(FEATURE_VALGRIND_FREYA  OFF    CACHE BOOL   "Enable Valgrind-Freya support?")
-set(FEATURE_CPOINTER_32_BIT OFF    CACHE BOOL   "Enable 32 bit compressed pointers?")
-set(FEATURE_MEM_STRESS_TEST OFF    CACHE BOOL   "Enable mem-stress test?")
-set(FEATURE_MEM_STATS       OFF    CACHE BOOL   "Enable memory statistics?")
-set(FEATURE_PARSER_DUMP     OFF    CACHE BOOL   "Enable parser byte-code dumps?")
-set(FEATURE_REGEXP_DUMP     OFF    CACHE BOOL   "Enable regexp byte-code dumps?")
-set(FEATURE_SNAPSHOT_SAVE   OFF    CACHE BOOL   "Enable saving snapshot files?")
-set(FEATURE_SNAPSHOT_EXEC   OFF    CACHE BOOL   "Enable executing snapshot files?")
 set(MEM_HEAP_SIZE_KB        "512"  CACHE STRING "Size of memory heap, in kilobytes")
 
 # Status messages
-message(STATUS "FEATURE_PROFILE           " ${FEATURE_PROFILE})
+message(STATUS "FEATURE_CPOINTER_32_BIT   " ${FEATURE_CPOINTER_32_BIT})
 message(STATUS "FEATURE_ERROR_MESSAGES    " ${FEATURE_ERROR_MESSAGES})
+message(STATUS "FEATURE_MEM_STATS         " ${FEATURE_MEM_STATS})
+message(STATUS "FEATURE_MEM_STRESS_TEST   " ${FEATURE_MEM_STRESS_TEST})
+message(STATUS "FEATURE_PARSER_DISABLE    " ${FEATURE_PARSER_DISABLE})
+message(STATUS "FEATURE_PARSER_DUMP       " ${FEATURE_PARSER_DUMP})
+message(STATUS "FEATURE_PROFILE           " ${FEATURE_PROFILE})
+message(STATUS "FEATURE_REGEXP_DUMP       " ${FEATURE_REGEXP_DUMP})
+message(STATUS "FEATURE_SNAPSHOT_EXEC     " ${FEATURE_SNAPSHOT_EXEC})
+message(STATUS "FEATURE_SNAPSHOT_SAVE     " ${FEATURE_SNAPSHOT_SAVE})
 message(STATUS "FEATURE_VALGRIND          " ${FEATURE_VALGRIND})
 message(STATUS "FEATURE_VALGRIND_FREYA    " ${FEATURE_VALGRIND_FREYA})
-message(STATUS "FEATURE_CPOINTER_32_BIT   " ${FEATURE_CPOINTER_32_BIT})
-message(STATUS "FEATURE_MEM_STRESS_TEST   " ${FEATURE_MEM_STRESS_TEST})
-message(STATUS "FEATURE_MEM_STATS         " ${FEATURE_MEM_STATS})
-message(STATUS "FEATURE_PARSER_DUMP       " ${FEATURE_PARSER_DUMP})
-message(STATUS "FEATURE_REGEXP_DUMP       " ${FEATURE_REGEXP_DUMP})
-message(STATUS "FEATURE_SNAPSHOT_SAVE     " ${FEATURE_SNAPSHOT_SAVE})
-message(STATUS "FEATURE_SNAPSHOT_EXEC     " ${FEATURE_SNAPSHOT_EXEC})
 message(STATUS "MEM_HEAP_SIZE_KB          " ${MEM_HEAP_SIZE_KB})
 
 # Include directories
@@ -117,32 +118,83 @@ if(NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
   set(DEFINES_JERRY ${DEFINES_JERRY} JERRY_NDEBUG)
 endif()
 
-# Profile modes
-# Minimal profile
-if(FEATURE_PROFILE STREQUAL "minimal")
-  set(DEFINES_JERRY ${DEFINES_JERRY}
-      CONFIG_DISABLE_NUMBER_BUILTIN
-      CONFIG_DISABLE_STRING_BUILTIN
-      CONFIG_DISABLE_BOOLEAN_BUILTIN
-      CONFIG_DISABLE_ERROR_BUILTINS
-      CONFIG_DISABLE_ARRAY_BUILTIN
-      CONFIG_DISABLE_MATH_BUILTIN
-      CONFIG_DISABLE_JSON_BUILTIN
-      CONFIG_DISABLE_DATE_BUILTIN
-      CONFIG_DISABLE_REGEXP_BUILTIN
-      CONFIG_DISABLE_ANNEXB_BUILTIN)
-elseif(NOT FEATURE_PROFILE STREQUAL "full")
-  message(FATAL_ERROR "FEATURE_PROFILE='${FEATURE_PROFILE}' isn't supported")
-endif()
-
 # Jerry heap-section
 if(DEFINED JERRY_HEAP_SECTION_ATTR)
   set(DEFINES_JERRY ${DEFINES_JERRY} JERRY_HEAP_SECTION_ATTR=${JERRY_HEAP_SECTION_ATTR})
 endif()
 
+# Checks the optional features
+# Enable 32 bit cpointers
+if(FEATURE_CPOINTER_32_BIT)
+  set(DEFINES_JERRY ${DEFINES_JERRY} JERRY_CPOINTER_32_BIT)
+endif()
+
 # Fill error messages for builtin error objects
 if(FEATURE_ERROR_MESSAGES)
   set(DEFINES_JERRY ${DEFINES_JERRY} JERRY_ENABLE_ERROR_MESSAGES)
+endif()
+
+# Memory statistics
+if(FEATURE_MEM_STATS)
+  set(DEFINES_JERRY ${DEFINES_JERRY} JMEM_STATS)
+endif()
+
+# Memory management stress-test mode
+if(FEATURE_MEM_STRESS_TEST)
+  set(DEFINES_JERRY ${DEFINES_JERRY} JMEM_GC_BEFORE_EACH_ALLOC)
+endif()
+
+# Disable parser and enable snapshots
+if(FEATURE_PARSER_DISABLE)
+  set(DEFINES_JERRY ${DEFINES_JERRY} JERRY_DISABLE_PARSER)
+  if(NOT FEATURE_SNAPSHOT_EXEC MATCHES ON)
+    set(FEATURE_SNAPSHOT_EXEC ON)
+	message(STATUS "Parser has been disabled, snapshot is now on")
+  endif()
+endif()
+
+# Parser byte-code dumps
+if(FEATURE_PARSER_DUMP)
+  set(DEFINES_JERRY ${DEFINES_JERRY} PARSER_DUMP_BYTE_CODE)
+endif()
+
+# Profile modes
+set(CONFIG_DISABLE_ES2015
+    CONFIG_DISABLE_ARRAYBUFFER_BUILTIN)
+# Minimal profile
+if(FEATURE_PROFILE STREQUAL "minimal")
+  set(DEFINES_JERRY ${DEFINES_JERRY}
+      ${CONFIG_DISABLE_ES2015}
+      CONFIG_DISABLE_ANNEXB_BUILTIN
+      CONFIG_DISABLE_ARRAY_BUILTIN
+      CONFIG_DISABLE_BOOLEAN_BUILTIN
+      CONFIG_DISABLE_DATE_BUILTIN
+      CONFIG_DISABLE_ERROR_BUILTINS
+      CONFIG_DISABLE_JSON_BUILTIN
+      CONFIG_DISABLE_MATH_BUILTIN
+      CONFIG_DISABLE_NUMBER_BUILTIN
+      CONFIG_DISABLE_REGEXP_BUILTIN
+      CONFIG_DISABLE_STRING_BUILTIN)
+elseif(FEATURE_PROFILE STREQUAL "es5.1")
+  set(DEFINES_JERRY ${DEFINES_JERRY}
+      ${CONFIG_DISABLE_ES2015})
+elseif(NOT FEATURE_PROFILE STREQUAL "es2015-subset")
+  message(FATAL_ERROR "FEATURE_PROFILE='${FEATURE_PROFILE}' isn't supported")
+endif()
+
+# RegExp byte-code dumps
+if(FEATURE_REGEXP_DUMP)
+  set(DEFINES_JERRY ${DEFINES_JERRY} REGEXP_DUMP_BYTE_CODE)
+endif()
+
+# Snapshot exec
+if(FEATURE_SNAPSHOT_EXEC)
+  set(DEFINES_JERRY ${DEFINES_JERRY} JERRY_ENABLE_SNAPSHOT_EXEC)
+endif()
+
+# Snapshot save
+if(FEATURE_SNAPSHOT_SAVE)
+  set(DEFINES_JERRY ${DEFINES_JERRY} JERRY_ENABLE_SNAPSHOT_SAVE)
 endif()
 
 # Valgrind
@@ -155,41 +207,6 @@ endif()
 if(FEATURE_VALGRIND_FREYA)
   set(DEFINES_JERRY ${DEFINES_JERRY} JERRY_VALGRIND_FREYA)
   set(INCLUDE_CORE ${INCLUDE_CORE} ${INCLUDE_THIRD_PARTY_VALGRIND})
-endif()
-
-# Enable 32 bit cpointers
-if(FEATURE_CPOINTER_32_BIT)
-  set(DEFINES_JERRY ${DEFINES_JERRY} JERRY_CPOINTER_32_BIT)
-endif()
-
-# Memory management stress-test mode
-if(FEATURE_MEM_STRESS_TEST)
-  set(DEFINES_JERRY ${DEFINES_JERRY} JMEM_GC_BEFORE_EACH_ALLOC)
-endif()
-
-# Memory statistics
-if(FEATURE_MEM_STATS)
-  set(DEFINES_JERRY ${DEFINES_JERRY} JMEM_STATS)
-endif()
-
-# Parser byte-code dumps
-if(FEATURE_PARSER_DUMP)
-  set(DEFINES_JERRY ${DEFINES_JERRY} PARSER_DUMP_BYTE_CODE)
-endif()
-
-# RegExp byte-code dumps
-if(FEATURE_REGEXP_DUMP)
-  set(DEFINES_JERRY ${DEFINES_JERRY} REGEXP_DUMP_BYTE_CODE)
-endif()
-
-# Snapshot save
-if(FEATURE_SNAPSHOT_SAVE)
-  set(DEFINES_JERRY ${DEFINES_JERRY} JERRY_ENABLE_SNAPSHOT_SAVE)
-endif()
-
-# Snapshot exec
-if(FEATURE_SNAPSHOT_EXEC)
-  set(DEFINES_JERRY ${DEFINES_JERRY} JERRY_ENABLE_SNAPSHOT_EXEC)
 endif()
 
 # Size of heap

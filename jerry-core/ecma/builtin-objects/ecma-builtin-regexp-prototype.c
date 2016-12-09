@@ -1,5 +1,4 @@
-/* Copyright 2015-2016 Samsung Electronics Co., Ltd.
- * Copyright 2015-2016 University of Szeged.
+/* Copyright JS Foundation and other contributors, http://js.foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -130,7 +129,7 @@ ecma_builtin_regexp_prototype_compile (ecma_value_t this_arg, /**< this argument
         ecma_object_t *this_obj_p = ecma_get_object_from_value (obj_this);
 
         /* Get bytecode property. */
-        ecma_value_t *bc_prop_p = &(((ecma_extended_object_t *) this_obj_p)->u.class_prop.value);
+        ecma_value_t *bc_prop_p = &(((ecma_extended_object_t *) this_obj_p)->u.class_prop.u.value);
 
         /* TODO: We currently have to re-compile the bytecode, because
          * we can't copy it without knowing its length. */
@@ -205,7 +204,7 @@ ecma_builtin_regexp_prototype_compile (ecma_value_t this_arg, /**< this argument
         ECMA_TRY_CATCH (obj_this, ecma_op_to_object (this_arg), ret_value);
         ecma_object_t *this_obj_p = ecma_get_object_from_value (obj_this);
 
-        ecma_value_t *bc_prop_p = &(((ecma_extended_object_t *) this_obj_p)->u.class_prop.value);
+        ecma_value_t *bc_prop_p = &(((ecma_extended_object_t *) this_obj_p)->u.class_prop.u.value);
 
         /* Try to compile bytecode from new source. */
         const re_compiled_code_t *new_bc_p = NULL;
@@ -273,7 +272,7 @@ ecma_builtin_regexp_prototype_exec (ecma_value_t this_arg, /**< this argument */
                     ret_value);
 
     ecma_object_t *obj_p = ecma_get_object_from_value (obj_this);
-    ecma_value_t *bytecode_prop_p = &(((ecma_extended_object_t *) obj_p)->u.class_prop.value);
+    ecma_value_t *bytecode_prop_p = &(((ecma_extended_object_t *) obj_p)->u.class_prop.u.value);
 
     void *bytecode_p = ECMA_GET_INTERNAL_VALUE_POINTER (void, *bytecode_prop_p);
 

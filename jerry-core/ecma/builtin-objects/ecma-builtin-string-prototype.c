@@ -1,5 +1,4 @@
-/* Copyright 2014-2016 Samsung Electronics Co., Ltd.
- * Copyright 2015-2016 University of Szeged.
+/* Copyright JS Foundation and other contributors, http://js.foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -78,9 +77,9 @@ ecma_builtin_string_prototype_object_to_string (ecma_value_t this_arg) /**< this
     {
       ecma_extended_object_t *ext_object_p = (ecma_extended_object_t *) object_p;
 
-      JERRY_ASSERT (ecma_is_value_string (ext_object_p->u.class_prop.value));
+      JERRY_ASSERT (ecma_is_value_string (ext_object_p->u.class_prop.u.value));
 
-      return ecma_copy_value (ext_object_p->u.class_prop.value);
+      return ecma_copy_value (ext_object_p->u.class_prop.u.value);
     }
   }
 

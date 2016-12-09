@@ -1,5 +1,4 @@
-/* Copyright 2015-2016 Samsung Electronics Co., Ltd.
- * Copyright 2015-2016 University of Szeged.
+/* Copyright JS Foundation and other contributors, http://js.foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -175,7 +174,8 @@ opfunc_set_accessor (bool is_getter, /**< is getter accessor */
                                          accessor_name_p,
                                          getter_func_p,
                                          setter_func_p,
-                                         ECMA_PROPERTY_CONFIGURABLE_ENUMERABLE);
+                                         ECMA_PROPERTY_CONFIGURABLE_ENUMERABLE,
+                                         NULL);
   }
   else if (is_getter)
   {

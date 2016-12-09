@@ -1,5 +1,4 @@
-# Copyright 2016 Samsung Electronics Co., Ltd.
-# Copyright 2016 University of Szeged.
+# Copyright JS Foundation and other contributors, http://js.foundation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,7 +15,7 @@
 cmake_minimum_required (VERSION 2.8.12)
 project (Unittest C)
 
-if(NOT FEATURE_PROFILE STREQUAL "full")
+if(NOT FEATURE_PROFILE STREQUAL "es5.1")
   message(FATAL_ERROR "FEATURE_PROFILE='${FEATURE_PROFILE}' isn't supported with UNITTESTS=ON")
 endif()
 

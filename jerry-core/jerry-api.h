@@ -1,5 +1,4 @@
-/* Copyright 2015-2016 Samsung Electronics Co., Ltd.
- * Copyright 2016 University of Szeged.
+/* Copyright JS Foundation and other contributors, http://js.foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -67,6 +66,18 @@ typedef enum
   JERRY_ERROR_TYPE,      /**< TypeError */
   JERRY_ERROR_URI        /**< URIError */
 } jerry_error_t;
+
+typedef enum
+{
+  JERRY_FEATURE_ERROR_MESSAGES, /**< error messages */
+  JERRY_FEATURE_CPOINTER_32_BIT, /**< 32 bit compressed pointers */
+  JERRY_FEATURE_MEM_STATS, /**< memory statistics */
+  JERRY_FEATURE_PARSER_DUMP, /**< parser byte-code dumps */
+  JERRY_FEATURE_REGEXP_DUMP, /**< regexp byte-code dumps */
+  JERRY_FEATURE_SNAPSHOT_SAVE, /**< saving snapshot files */
+  JERRY_FEATURE_SNAPSHOT_EXEC, /**< executing snapshot files */
+  JERRY_FEATURE__COUNT /**< number of features. NOTE: must be at the end of the list */
+} jerry_feature_t;
 
 /**
  * Jerry's char value
@@ -190,6 +201,11 @@ bool jerry_value_is_null (const jerry_value_t);
 bool jerry_value_is_object (const jerry_value_t);
 bool jerry_value_is_string (const jerry_value_t);
 bool jerry_value_is_undefined (const jerry_value_t);
+
+/**
+ * Checker function of whether the specified compile feature is enabled
+ */
+bool jerry_is_feature_enabled (const jerry_feature_t);
 
 /**
  * Error flag manipulation functions

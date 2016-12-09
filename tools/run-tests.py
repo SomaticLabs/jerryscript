@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
-# Copyright 2016 Samsung Electronics Co., Ltd.
-# Copyright 2016 University of Szeged.
+# Copyright JS Foundation and other contributors, http://js.foundation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -84,6 +83,10 @@ jerry_test_suite_options.append(Options('jerry_test_suite-minimal', ['--profile=
 jerry_test_suite_options.append(Options('jerry_test_suite-minimal-snapshot', ['--profile=minimal', '--snapshot-save=on', '--snapshot-exec=on'], ['--snapshot']))
 jerry_test_suite_options.append(Options('jerry_test_suite-minimal-debug', ['--debug', '--profile=minimal']))
 jerry_test_suite_options.append(Options('jerry_test_suite-minimal-debug-snapshot', ['--debug', '--profile=minimal', '--snapshot-save=on', '--snapshot-exec=on'], ['--snapshot']))
+jerry_test_suite_options.append(Options('jerry_test_suite-es2015-subset', ['--profile=es2015-subset']))
+jerry_test_suite_options.append(Options('jerry_test_suite-es2015-subset-snapshot', ['--profile=es2015-subset', '--snapshot-save=on', '--snapshot-exec=on'], ['--snapshot']))
+jerry_test_suite_options.append(Options('jerry_test_suite-es2015-subset-debug', ['--debug', '--profile=es2015-subset']))
+jerry_test_suite_options.append(Options('jerry_test_suite-es2015-subset-debug-snapshot', ['--debug', '--profile=es2015-subset', '--snapshot-save=on', '--snapshot-exec=on'], ['--snapshot']))
 
 # Test options for test262
 test262_test_suite_options = [
@@ -161,8 +164,10 @@ def run_jerry_test_suite():
 
         if '--profile=minimal' in job.build_args:
             test_cmd.append(JERRY_TEST_SUITE_MINIMAL_LIST)
-        else:
+        elif '--profile=es2015-subset' in job.build_args:
             test_cmd.append(JERRY_TEST_SUITE_DIR)
+        else:
+            test_cmd.append(JERRY_TEST_SUITE_ES51_LIST)
 
         if job.test_args:
             test_cmd.extend(job.test_args)

@@ -1,5 +1,4 @@
-/* Copyright 2015-2016 Samsung Electronics Co., Ltd.
- * Copyright 2015-2016 University of Szeged.
+/* Copyright JS Foundation and other contributors, http://js.foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -162,6 +161,8 @@ main ()
   TEST_ASSERT (ecma_date_make_day (1970, 1, 35) == 65);
   TEST_ASSERT (ecma_date_make_day (1970, 13, 35) == 430);
   TEST_ASSERT (ecma_date_make_day (2016, 2, 1) == 16861);
+  TEST_ASSERT (ecma_date_make_day (2016, 8, 31) == 17075);
+  TEST_ASSERT (ecma_date_make_day (2016, 9, 1) == 17075);
 
   /* ecma_number_t ecma_date_make_date (day, time) */
 

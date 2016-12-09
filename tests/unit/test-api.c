@@ -1,5 +1,4 @@
-/* Copyright 2015-2016 Samsung Electronics Co., Ltd.
- * Copyright 2016 University of Szeged.
+/* Copyright JS Foundation and other contributors, http://js.foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -151,8 +150,8 @@ handler_construct (const jerry_value_t func_obj_val, /**< function object */
  */
 #define JERRY_MAGIC_STRING_ITEMS \
   JERRY_MAGIC_STRING_DEF (GLOBAL, global) \
-  JERRY_MAGIC_STRING_DEF (CONSOLE, console)
-
+  JERRY_MAGIC_STRING_DEF (CONSOLE, console) \
+  JERRY_MAGIC_STRING_DEF (GREEK_ZERO_SIGN, \xed\xa0\x80\xed\xb6\x8a)
 
 #define JERRY_MAGIC_STRING_DEF(NAME, STRING) \
   static const char jerry_magic_string_ex_ ## NAME[] = # STRING;
@@ -794,26 +793,29 @@ main (void)
   TEST_ASSERT (test_api_is_free_callback_was_called);
 
   /* Test: parser error location */
-  jerry_init (JERRY_INIT_SHOW_OPCODES);
+  if (jerry_is_feature_enabled (JERRY_FEATURE_ERROR_MESSAGES))
+  {
+    jerry_init (JERRY_INIT_SHOW_OPCODES);
 
-  const char *parser_err_src_p = "b = 'hello';\nvar a = (;";
-  parsed_code_val = jerry_parse ((jerry_char_t *) parser_err_src_p,
-                                 strlen (parser_err_src_p),
-                                 false);
-  TEST_ASSERT (jerry_value_has_error_flag (parsed_code_val));
-  jerry_value_clear_error_flag (&parsed_code_val);
-  jerry_value_t err_str_val = jerry_value_to_string (parsed_code_val);
-  jerry_size_t err_str_size = jerry_get_string_size (err_str_val);
-  jerry_char_t err_str_buf[256];
-  sz = jerry_string_to_char_buffer (err_str_val, err_str_buf, err_str_size);
-  err_str_buf[sz] = 0;
+    const char *parser_err_src_p = "b = 'hello';\nvar a = (;";
+    parsed_code_val = jerry_parse ((jerry_char_t *) parser_err_src_p,
+                                   strlen (parser_err_src_p),
+                                   false);
+    TEST_ASSERT (jerry_value_has_error_flag (parsed_code_val));
+    jerry_value_clear_error_flag (&parsed_code_val);
+    jerry_value_t err_str_val = jerry_value_to_string (parsed_code_val);
+    jerry_size_t err_str_size = jerry_get_string_size (err_str_val);
+    jerry_char_t err_str_buf[256];
+    sz = jerry_string_to_char_buffer (err_str_val, err_str_buf, err_str_size);
+    err_str_buf[sz] = 0;
 
-  jerry_release_value (err_str_val);
-  jerry_release_value (parsed_code_val);
+    jerry_release_value (err_str_val);
+    jerry_release_value (parsed_code_val);
+    TEST_ASSERT (!strcmp ((char *) err_str_buf,
+                          "SyntaxError: Primary expression expected. [line: 2, column: 10]"));
 
-  TEST_ASSERT (!strcmp ((char *) err_str_buf,
-                        "SyntaxError: Primary expression expected. [line: 2, column: 10]"));
-  jerry_cleanup ();
+    jerry_cleanup ();
+  }
 
   /* External Magic String */
   jerry_init (JERRY_INIT_SHOW_OPCODES);
@@ -832,10 +834,38 @@ main (void)
   jerry_release_value (res);
   jerry_release_value (parsed_code_val);
 
+  /* call jerry_create_string functions which will returns with the registered external magic strings */
+  args[0] = jerry_create_string ((jerry_char_t *) "console");
+  args[1] = jerry_create_string ((jerry_char_t *) "\xed\xa0\x80\xed\xb6\x8a"); /**< greek zero sign */
+
+  cesu8_length = jerry_get_string_length (args[0]);
+  cesu8_sz = jerry_get_string_size (args[0]);
+
+  char string_console[cesu8_sz];
+  jerry_string_to_char_buffer (args[0], (jerry_char_t *) string_console, cesu8_sz);
+
+  TEST_ASSERT (!strncmp (string_console, "console", cesu8_sz));
+  TEST_ASSERT (cesu8_length == 7);
+  TEST_ASSERT (cesu8_length == cesu8_sz);
+
+  jerry_release_value (args[0]);
+
+  cesu8_length = jerry_get_string_length (args[1]);
+  cesu8_sz = jerry_get_string_size (args[1]);
+
+  char string_greek_zero_sign[cesu8_sz];
+  jerry_string_to_char_buffer (args[1], (jerry_char_t *) string_greek_zero_sign, cesu8_sz);
+
+  TEST_ASSERT (!strncmp (string_greek_zero_sign, "\xed\xa0\x80\xed\xb6\x8a", cesu8_sz));
+  TEST_ASSERT (cesu8_length == 2);
+  TEST_ASSERT (cesu8_sz == 6);
+
+  jerry_release_value (args[1]);
+
   jerry_cleanup ();
 
   /* Dump / execute snapshot */
-  if (true)
+  if (jerry_is_feature_enabled (JERRY_FEATURE_SNAPSHOT_EXEC))
   {
     static uint8_t global_mode_snapshot_buffer[1024];
     static uint8_t eval_mode_snapshot_buffer[1024];
