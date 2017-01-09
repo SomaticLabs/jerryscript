@@ -49,6 +49,10 @@ JERRY_STATIC_ASSERT ((int) ECMA_ERROR_COMMON == (int) JERRY_ERROR_COMMON
                      && (int) ECMA_ERROR_URI == (int) JERRY_ERROR_URI,
                      ecma_standard_error_t_must_be_equal_to_jerry_error_t);
 
+#if !defined (JERRY_JS_PARSER) && !defined (JERRY_ENABLE_SNAPSHOT_EXEC)
+#error JERRY_JS_PARSER or JERRY_ENABLE_SNAPSHOT_EXEC must be defined!
+#endif /* !JERRY_JS_PARSER && !JERRY_ENABLE_SNAPSHOT_EXEC */
+
 #ifdef JERRY_ENABLE_ERROR_MESSAGES
 
 /**
@@ -249,6 +253,7 @@ jerry_parse (const jerry_char_t *source_p, /**< script source */
              size_t source_size, /**< script source size */
              bool is_strict) /**< strict mode */
 {
+#ifdef JERRY_JS_PARSER
   jerry_assert_api_available ();
 
   ecma_compiled_code_t *bytecode_data_p;
@@ -282,6 +287,13 @@ jerry_parse (const jerry_char_t *source_p, /**< script source */
   ecma_bytecode_deref (bytecode_data_p);
 
   return ecma_make_object_value (func_obj_p);
+#else /* !JERRY_JS_PARSER */
+  JERRY_UNUSED (source_p);
+  JERRY_UNUSED (source_size);
+  JERRY_UNUSED (is_strict);
+
+  return ecma_raise_syntax_error (ECMA_ERR_MSG ("The parser has been disabled."));
+#endif /* JERRY_JS_PARSER */
 } /* jerry_parse */
 
 /**
@@ -503,12 +515,15 @@ bool jerry_is_feature_enabled (const jerry_feature_t feature)
   JERRY_ASSERT (feature < JERRY_FEATURE__COUNT);
 
   return (false
-#ifdef JERRY_ENABLE_ERROR_MESSAGES
-          || feature == JERRY_FEATURE_ERROR_MESSAGES
-#endif /* JERRY_ENABLE_ERROR_MESSAGES */
 #ifdef JERRY_CPOINTER_32_BIT
           || feature == JERRY_FEATURE_CPOINTER_32_BIT
 #endif /* JERRY_CPOINTER_32_BIT */
+#ifdef JERRY_ENABLE_ERROR_MESSAGES
+          || feature == JERRY_FEATURE_ERROR_MESSAGES
+#endif /* JERRY_ENABLE_ERROR_MESSAGES */
+#ifdef JERRY_JS_PARSER
+          || feature == JERRY_FEATURE_JS_PARSER
+#endif /* JERRY_JS_PARSER */
 #ifdef JMEM_STATS
           || feature == JERRY_FEATURE_MEM_STATS
 #endif /* JMEM_STATS */
@@ -1145,10 +1160,44 @@ jerry_string_to_char_buffer (const jerry_value_t value, /**< input string value 
     return 0;
   }
 
+  return ecma_string_copy_to_cesu8_buffer (str_p,
+                                           (lit_utf8_byte_t *) buffer_p,
+                                           buffer_size);
+} /* jerry_string_to_char_buffer */
+
+/**
+ * Copy the characters of an utf-8 encoded string into a specified buffer.
+ *
+ * Note:
+ *      The '\0' character could occur anywhere in the returned string
+ *      Returns 0, if the value parameter is not a string or the buffer
+ *      is not large enough for the whole string.
+ *
+ * @return number of bytes copied to the buffer.
+ */
+jerry_size_t
+jerry_string_to_utf8_char_buffer (const jerry_value_t value, /**< input string value */
+                                  jerry_char_t *buffer_p, /**< [out] output characters buffer */
+                                  jerry_size_t buffer_size) /**< size of output buffer */
+{
+  jerry_assert_api_available ();
+
+  if (!ecma_is_value_string (value) || buffer_p == NULL)
+  {
+    return 0;
+  }
+
+  ecma_string_t *str_p = ecma_get_string_from_value (value);
+
+  if (ecma_string_get_utf8_size (str_p) > buffer_size)
+  {
+    return 0;
+  }
+
   return ecma_string_copy_to_utf8_buffer (str_p,
                                           (lit_utf8_byte_t *) buffer_p,
                                           buffer_size);
-} /* jerry_string_to_char_buffer */
+} /* jerry_string_to_utf8_char_buffer */
 
 /**
  * Checks whether the object or it's prototype objects have the given property.

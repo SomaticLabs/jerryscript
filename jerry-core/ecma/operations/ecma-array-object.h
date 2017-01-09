@@ -39,18 +39,21 @@ typedef enum
                                                          *   in the property descriptor */
 } ecma_array_object_set_length_flags_t;
 
-extern ecma_value_t
-ecma_op_create_array_object (const ecma_value_t *, ecma_length_t, bool);
+ecma_value_t
+ecma_op_create_array_object (const ecma_value_t *arguments_list_p, ecma_length_t arguments_list_len,
+                             bool is_treat_single_arg_as_length);
 
-extern ecma_value_t
-ecma_op_array_object_set_length (ecma_object_t *, ecma_value_t, uint32_t);
+ecma_value_t
+ecma_op_array_object_set_length (ecma_object_t *object_p, ecma_value_t new_value, uint32_t flags);
 
-extern ecma_value_t
-ecma_op_array_object_define_own_property (ecma_object_t *, ecma_string_t *, const ecma_property_descriptor_t *, bool);
+ecma_value_t
+ecma_op_array_object_define_own_property (ecma_object_t *object_p, ecma_string_t *property_name_p,
+                                          const ecma_property_descriptor_t *property_desc_p, bool is_throw);
 
-extern void
-ecma_op_array_list_lazy_property_names (ecma_object_t *, bool,
-                                        ecma_collection_header_t *, ecma_collection_header_t *);
+void
+ecma_op_array_list_lazy_property_names (ecma_object_t *obj_p, bool separate_enumerable,
+                                        ecma_collection_header_t *main_collection_p,
+                                        ecma_collection_header_t *non_enum_collection_p);
 
 /**
  * @}
