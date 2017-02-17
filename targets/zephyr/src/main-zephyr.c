@@ -19,10 +19,9 @@
 
 #include <zephyr.h>
 #include <misc/printk.h>
-#include <misc/shell.h>
 #include "getline-zephyr.h"
 
-#include "jerry-api.h"
+#include "jerryscript.h"
 
 static jerry_value_t print_function;
 

@@ -30,7 +30,8 @@
 #include "ecma-objects.h"
 #include "ecma-objects-general.h"
 #include "jcontext.h"
-#include "jerry-api.h"
+#include "jerryscript.h"
+#include "jerry-debugger.h"
 #include "js-parser.h"
 #include "re-compiler.h"
 
@@ -154,6 +155,13 @@ jerry_init (jerry_init_flag_t flags) /**< combination of Jerry flags */
 
   jmem_init ();
   ecma_init ();
+
+#ifdef JERRY_DEBUGGER
+  if (flags & JERRY_INIT_DEBUGGER)
+  {
+    jerry_debugger_accept_connection ();
+  }
+#endif /* JERRY_DEBUGGER */
 } /* jerry_init */
 
 /**
@@ -165,6 +173,14 @@ jerry_cleanup (void)
   jerry_assert_api_available ();
 
   ecma_finalize ();
+
+#ifdef JERRY_DEBUGGER
+  if (JERRY_CONTEXT (jerry_init_flags) & JERRY_INIT_DEBUGGER)
+  {
+    jerry_debugger_close_connection ();
+  }
+#endif /* JERRY_DEBUGGER */
+
   jmem_finalize ();
   jerry_make_api_unavailable ();
 } /* jerry_cleanup */
@@ -295,6 +311,35 @@ jerry_parse (const jerry_char_t *source_p, /**< script source */
   return ecma_raise_syntax_error (ECMA_ERR_MSG ("The parser has been disabled."));
 #endif /* JERRY_JS_PARSER */
 } /* jerry_parse */
+
+/**
+ * Parse script and construct an ECMAScript function. The lexical
+ * environment is set to the global lexical environment. The name
+ * (usually a file name) is also passed to this function which is
+ * used by the debugger to find the source code.
+ *
+ * @return function object value - if script was parsed successfully,
+ *         thrown error - otherwise
+ */
+jerry_value_t
+jerry_parse_named_resource (const jerry_char_t *name_p, /**< name (usually a file name) */
+                            size_t name_length, /**< length of name */
+                            const jerry_char_t *source_p, /**< script source */
+                            size_t source_size, /**< script source size */
+                            bool is_strict) /**< strict mode */
+{
+#ifdef JERRY_DEBUGGER
+  if (JERRY_CONTEXT (jerry_init_flags) & JERRY_INIT_DEBUGGER)
+  {
+    jerry_debugger_send_string (JERRY_DEBUGGER_RESOURCE_NAME, name_p, name_length);
+  }
+#else /* JERRY_DEBUGGER */
+  JERRY_UNUSED (name_p);
+  JERRY_UNUSED (name_length);
+#endif /* JERRY_DEBUGGER */
+
+  return jerry_parse (source_p, source_size, is_strict);
+} /* jerry_parse_named_resource */
 
 /**
  * Run an EcmaScript function created by jerry_parse.
@@ -937,7 +982,7 @@ jerry_create_object (void)
 } /* jerry_create_object */
 
 /**
- * Create string from a valid UTF8 string
+ * Create string from a valid UTF-8 string
  *
  * Note:
  *      returned value must be freed with jerry_release_value when it is no longer needed.
@@ -951,7 +996,7 @@ jerry_create_string_from_utf8 (const jerry_char_t *str_p) /**< pointer to string
 } /* jerry_create_string_from_utf8 */
 
 /**
- * Create string from a valid UTF8 string
+ * Create string from a valid UTF-8 string
  *
  * Note:
  *      returned value must be freed with jerry_release_value when it is no longer needed.
@@ -971,7 +1016,7 @@ jerry_create_string_sz_from_utf8 (const jerry_char_t *str_p, /**< pointer to str
 } /* jerry_create_string_sz_from_utf8 */
 
 /**
- * Create string from a valid CESU8 string
+ * Create string from a valid CESU-8 string
  *
  * Note:
  *      returned value must be freed with jerry_release_value, when it is no longer needed.
@@ -985,7 +1030,7 @@ jerry_create_string (const jerry_char_t *str_p) /**< pointer to string */
 } /* jerry_create_string */
 
 /**
- * Create string from a valid CESU8 string
+ * Create string from a valid CESU-8 string
  *
  * Note:
  *      returned value must be freed with jerry_release_value when it is no longer needed.
@@ -1198,6 +1243,74 @@ jerry_string_to_utf8_char_buffer (const jerry_value_t value, /**< input string v
                                           (lit_utf8_byte_t *) buffer_p,
                                           buffer_size);
 } /* jerry_string_to_utf8_char_buffer */
+
+/**
+ * Copy the characters of an cesu-8 encoded substring into a specified buffer.
+ *
+ * Note:
+ *      The '\0' character could occur anywhere in the returned string
+ *      Returns 0, if the value parameter is not a string.
+ *      It will extract the substring beetween the specified start position
+ *      and the end position (or the end of the string, whichever comes first).
+ *
+ * @return number of bytes copied to the buffer.
+ */
+jerry_size_t
+jerry_substring_to_char_buffer (const jerry_value_t value, /**< input string value */
+                                jerry_length_t start_pos, /**< position of the first character */
+                                jerry_length_t end_pos, /**< position of the last character */
+                                jerry_char_t *buffer_p, /**< [out] output characters buffer */
+                                jerry_size_t buffer_size) /**< size of output buffer */
+{
+  jerry_assert_api_available ();
+
+  if (!ecma_is_value_string (value) || buffer_p == NULL)
+  {
+    return 0;
+  }
+
+  ecma_string_t *str_p = ecma_get_string_from_value (value);
+
+  return ecma_substring_copy_to_cesu8_buffer (str_p,
+                                              start_pos,
+                                              end_pos,
+                                              (lit_utf8_byte_t *) buffer_p,
+                                              buffer_size);
+} /* jerry_substring_to_char_buffer */
+
+/**
+ * Copy the characters of an utf-8 encoded substring into a specified buffer.
+ *
+ * Note:
+ *      The '\0' character could occur anywhere in the returned string
+ *      Returns 0, if the value parameter is not a string.
+ *      It will extract the substring beetween the specified start position
+ *      and the end position (or the end of the string, whichever comes first).
+ *
+ * @return number of bytes copied to the buffer.
+ */
+jerry_size_t
+jerry_substring_to_utf8_char_buffer (const jerry_value_t value, /**< input string value */
+                                     jerry_length_t start_pos, /**< position of the first character */
+                                     jerry_length_t end_pos, /**< position of the last character */
+                                     jerry_char_t *buffer_p, /**< [out] output characters buffer */
+                                     jerry_size_t buffer_size) /**< size of output buffer */
+{
+  jerry_assert_api_available ();
+
+  if (!ecma_is_value_string (value) || buffer_p == NULL)
+  {
+    return 0;
+  }
+
+  ecma_string_t *str_p = ecma_get_string_from_value (value);
+
+  return ecma_substring_copy_to_utf8_buffer (str_p,
+                                             start_pos,
+                                             end_pos,
+                                             (lit_utf8_byte_t *) buffer_p,
+                                             buffer_size);
+} /* jerry_substring_to_utf8_char_buffer */
 
 /**
  * Checks whether the object or it's prototype objects have the given property.
@@ -1892,6 +2005,34 @@ jerry_foreach_object_property (const jerry_value_t obj_val, /**< object value */
   ecma_free_value (property_value);
   return false;
 } /* jerry_foreach_object_property */
+
+/**
+ * Validate UTF-8 string
+ *
+ * @return true - if UTF-8 string is well-formed
+ *         false - otherwise
+ */
+bool
+jerry_is_valid_utf8_string (const jerry_char_t *utf8_buf_p, /**< UTF-8 string */
+                            jerry_size_t buf_size) /**< string size */
+{
+  return lit_is_valid_utf8_string ((lit_utf8_byte_t *) utf8_buf_p,
+                                   (lit_utf8_size_t) buf_size);
+} /* jerry_is_valid_utf8_string */
+
+/**
+ * Validate CESU-8 string
+ *
+ * @return true - if CESU-8 string is well-formed
+ *         false - otherwise
+ */
+bool
+jerry_is_valid_cesu8_string (const jerry_char_t *cesu8_buf_p, /**< CESU-8 string */
+                             jerry_size_t buf_size) /**< string size */
+{
+  return lit_is_valid_cesu8_string ((lit_utf8_byte_t *) cesu8_buf_p,
+                                    (lit_utf8_size_t) buf_size);
+} /* jerry_is_valid_cesu8_string */
 
 /**
  * @}

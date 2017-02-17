@@ -17,22 +17,29 @@ set(JERRY_CORE_NAME jerry-core)
 project (${JERRY_CORE_NAME} C)
 
 # Optional features
-set(FEATURE_CPOINTER_32_BIT OFF     CACHE BOOL   "Enable 32 bit compressed pointers?")
-set(FEATURE_ERROR_MESSAGES  OFF     CACHE BOOL   "Enable error messages?")
-set(FEATURE_JS_PARSER       ON      CACHE BOOL   "Enable js-parser?")
-set(FEATURE_MEM_STATS       OFF     CACHE BOOL   "Enable memory statistics?")
-set(FEATURE_MEM_STRESS_TEST OFF     CACHE BOOL   "Enable mem-stress test?")
-set(FEATURE_PARSER_DUMP     OFF     CACHE BOOL   "Enable parser byte-code dumps?")
-set(FEATURE_PROFILE         "es5.1" CACHE STRING "Use default or other profile?")
-set(FEATURE_REGEXP_DUMP     OFF     CACHE BOOL   "Enable regexp byte-code dumps?")
-set(FEATURE_SNAPSHOT_EXEC   OFF     CACHE BOOL   "Enable executing snapshot files?")
-set(FEATURE_SNAPSHOT_SAVE   OFF     CACHE BOOL   "Enable saving snapshot files?")
-set(FEATURE_VALGRIND        OFF     CACHE BOOL   "Enable Valgrind support?")
-set(FEATURE_VALGRIND_FREYA  OFF     CACHE BOOL   "Enable Valgrind-Freya support?")
-set(MEM_HEAP_SIZE_KB        "512"   CACHE STRING "Size of memory heap, in kilobytes")
+set(FEATURE_CPOINTER_32_BIT  OFF     CACHE BOOL   "Enable 32 bit compressed pointers?")
+set(FEATURE_DEBUGGER         OFF     CACHE BOOL   "Enable JerryScript debugger?")
+set(FEATURE_ERROR_MESSAGES   OFF     CACHE BOOL   "Enable error messages?")
+set(FEATURE_JS_PARSER        ON      CACHE BOOL   "Enable js-parser?")
+set(FEATURE_MEM_STATS        OFF     CACHE BOOL   "Enable memory statistics?")
+set(FEATURE_MEM_STRESS_TEST  OFF     CACHE BOOL   "Enable mem-stress test?")
+set(FEATURE_PARSER_DUMP      OFF     CACHE BOOL   "Enable parser byte-code dumps?")
+set(FEATURE_PROFILE          "es5.1" CACHE STRING "Use default or other profile?")
+set(FEATURE_REGEXP_DUMP      OFF     CACHE BOOL   "Enable regexp byte-code dumps?")
+set(FEATURE_SNAPSHOT_EXEC    OFF     CACHE BOOL   "Enable executing snapshot files?")
+set(FEATURE_SNAPSHOT_SAVE    OFF     CACHE BOOL   "Enable saving snapshot files?")
+set(FEATURE_SYSTEM_ALLOCATOR OFF     CACHE BOOL   "Enable system allocator?")
+set(FEATURE_VALGRIND         OFF     CACHE BOOL   "Enable Valgrind support?")
+set(FEATURE_VALGRIND_FREYA   OFF     CACHE BOOL   "Enable Valgrind-Freya support?")
+set(MEM_HEAP_SIZE_KB         "512"   CACHE STRING "Size of memory heap, in kilobytes")
+
+if(FEATURE_SYSTEM_ALLOCATOR)
+  set(FEATURE_CPOINTER_32_BIT ON)
+endif()
 
 # Status messages
 message(STATUS "FEATURE_CPOINTER_32_BIT   " ${FEATURE_CPOINTER_32_BIT})
+message(STATUS "FEATURE_DEBUGGER          " ${FEATURE_DEBUGGER})
 message(STATUS "FEATURE_ERROR_MESSAGES    " ${FEATURE_ERROR_MESSAGES})
 message(STATUS "FEATURE_JS_PARSER         " ${FEATURE_JS_PARSER})
 message(STATUS "FEATURE_MEM_STATS         " ${FEATURE_MEM_STATS})
@@ -42,6 +49,7 @@ message(STATUS "FEATURE_PROFILE           " ${FEATURE_PROFILE})
 message(STATUS "FEATURE_REGEXP_DUMP       " ${FEATURE_REGEXP_DUMP})
 message(STATUS "FEATURE_SNAPSHOT_EXEC     " ${FEATURE_SNAPSHOT_EXEC})
 message(STATUS "FEATURE_SNAPSHOT_SAVE     " ${FEATURE_SNAPSHOT_SAVE})
+message(STATUS "FEATURE_SYSTEM_ALLOCATOR  " ${FEATURE_SYSTEM_ALLOCATOR})
 message(STATUS "FEATURE_VALGRIND          " ${FEATURE_VALGRIND})
 message(STATUS "FEATURE_VALGRIND_FREYA    " ${FEATURE_VALGRIND_FREYA})
 message(STATUS "MEM_HEAP_SIZE_KB          " ${MEM_HEAP_SIZE_KB})
@@ -49,8 +57,10 @@ message(STATUS "MEM_HEAP_SIZE_KB          " ${MEM_HEAP_SIZE_KB})
 # Include directories
 set(INCLUDE_CORE
     "${CMAKE_CURRENT_SOURCE_DIR}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/debugger"
     "${CMAKE_CURRENT_SOURCE_DIR}/ecma/base"
     "${CMAKE_CURRENT_SOURCE_DIR}/ecma/builtin-objects"
+    "${CMAKE_CURRENT_SOURCE_DIR}/ecma/builtin-objects/typedarray"
     "${CMAKE_CURRENT_SOURCE_DIR}/ecma/operations"
     "${CMAKE_CURRENT_SOURCE_DIR}/jcontext"
     "${CMAKE_CURRENT_SOURCE_DIR}/jmem"
@@ -62,22 +72,25 @@ set(INCLUDE_CORE
 
 # Sources
 # Jerry core
-file(GLOB SOURCE_CORE_API                   *.c)
-file(GLOB SOURCE_CORE_ECMA_BASE             ecma/base/*.c)
-file(GLOB SOURCE_CORE_ECMA_BUILTINS         ecma/builtin-objects/*.c)
-file(GLOB SOURCE_CORE_ECMA_OPERATIONS       ecma/operations/*.c)
-file(GLOB SOURCE_CORE_JCONTEXT              jcontext/*.c)
-file(GLOB SOURCE_CORE_JMEM                  jmem/*.c)
-file(GLOB SOURCE_CORE_JRT                   jrt/*.c)
-file(GLOB SOURCE_CORE_LIT                   lit/*.c)
-file(GLOB SOURCE_CORE_PARSER_JS             parser/js/*.c)
-file(GLOB SOURCE_CORE_PARSER_REGEXP         parser/regexp/*.c)
-file(GLOB SOURCE_CORE_VM                    vm/*.c)
+file(GLOB SOURCE_CORE_API                       *.c)
+file(GLOB SOURCE_CORE_DEBUGGER                  debugger/*.c)
+file(GLOB SOURCE_CORE_ECMA_BASE                 ecma/base/*.c)
+file(GLOB SOURCE_CORE_ECMA_BUILTINS             ecma/builtin-objects/*.c)
+file(GLOB SOURCE_CORE_ECMA_BUILTINS_TYPEDARRAY  ecma/builtin-objects/typedarray/*.c)
+file(GLOB SOURCE_CORE_ECMA_OPERATIONS           ecma/operations/*.c)
+file(GLOB SOURCE_CORE_JCONTEXT                  jcontext/*.c)
+file(GLOB SOURCE_CORE_JMEM                      jmem/*.c)
+file(GLOB SOURCE_CORE_JRT                       jrt/*.c)
+file(GLOB SOURCE_CORE_LIT                       lit/*.c)
+file(GLOB SOURCE_CORE_PARSER_JS                 parser/js/*.c)
+file(GLOB SOURCE_CORE_PARSER_REGEXP             parser/regexp/*.c)
+file(GLOB SOURCE_CORE_VM                        vm/*.c)
 
 set(SOURCE_CORE_FILES
     ${SOURCE_CORE_API}
     ${SOURCE_CORE_ECMA_BASE}
     ${SOURCE_CORE_ECMA_BUILTINS}
+    ${SOURCE_CORE_ECMA_BUILTINS_TYPEDARRAY}
     ${SOURCE_CORE_ECMA_OPERATIONS}
     ${SOURCE_CORE_JCONTEXT}
     ${SOURCE_CORE_JMEM}
@@ -86,6 +99,10 @@ set(SOURCE_CORE_FILES
     ${SOURCE_CORE_PARSER_JS}
     ${SOURCE_CORE_PARSER_REGEXP}
     ${SOURCE_CORE_VM})
+
+if(FEATURE_DEBUGGER)
+  set(SOURCE_CORE_FILES ${SOURCE_CORE_FILES} ${SOURCE_CORE_DEBUGGER})
+endif()
 
 # Jerry port
 file(GLOB SOURCE_PORT_FILES "${PORT_DIR}/*.c")
@@ -153,6 +170,11 @@ if(FEATURE_MEM_STATS)
   set(DEFINES_JERRY ${DEFINES_JERRY} JMEM_STATS)
 endif()
 
+# Enable debugger
+if(FEATURE_DEBUGGER)
+  set(DEFINES_JERRY ${DEFINES_JERRY} JERRY_DEBUGGER)
+endif()
+
 # Memory management stress-test mode
 if(FEATURE_MEM_STRESS_TEST)
   set(DEFINES_JERRY ${DEFINES_JERRY} JMEM_GC_BEFORE_EACH_ALLOC)
@@ -176,6 +198,10 @@ else()
   MESSAGE(FATAL_ERROR "Profile file: '${FEATURE_PROFILE}' doesn't exist!")
 endif()
 
+if(JERRY_LIBC AND FEATURE_DEBUGGER)
+  MESSAGE(FATAL_ERROR "This configuration is not supported. Please build against your system libc to enable the JerryScript debugger.")
+endif()
+
 # RegExp byte-code dumps
 if(FEATURE_REGEXP_DUMP)
   set(DEFINES_JERRY ${DEFINES_JERRY} REGEXP_DUMP_BYTE_CODE)
@@ -189,6 +215,11 @@ endif()
 # Snapshot save
 if(FEATURE_SNAPSHOT_SAVE)
   set(DEFINES_JERRY ${DEFINES_JERRY} JERRY_ENABLE_SNAPSHOT_SAVE)
+endif()
+
+# Enable system allocator
+if(FEATURE_SYSTEM_ALLOCATOR)
+  set(DEFINES_JERRY ${DEFINES_JERRY} JERRY_SYSTEM_ALLOCATOR)
 endif()
 
 # Valgrind
@@ -224,7 +255,12 @@ if(JERRY_LIBC)
   target_include_directories(${JERRY_CORE_NAME} SYSTEM PRIVATE "${CMAKE_SOURCE_DIR}/jerry-libc/include")
 endif()
 
-target_link_libraries(${JERRY_CORE_NAME} ${JERRY_LIBS} ${EXTERNAL_LINK_LIBS})
+target_link_libraries(${JERRY_CORE_NAME} ${JERRY_LIBS})
+
+separate_arguments(EXTERNAL_LINK_LIBS)
+foreach(EXT_LIB ${EXTERNAL_LINK_LIBS})
+  target_link_libraries(${JERRY_CORE_NAME} ${EXT_LIB})
+endforeach()
 
 install(TARGETS ${JERRY_CORE_NAME} DESTINATION lib)
-install(FILES jerry-api.h jerry-port.h DESTINATION include)
+install(FILES jerry-api.h jerryscript.h jerry-port.h DESTINATION include)

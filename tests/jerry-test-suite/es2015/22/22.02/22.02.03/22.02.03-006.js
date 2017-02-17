@@ -13,19 +13,8 @@
  * limitations under the License.
  */
 
-#ifndef JMEM_CONFIG_H
-#define JMEM_CONFIG_H
+var a = new Int8Array([1,2,3,4,5]);
+var b = new Int8Array(a.buffer, 2, 3);
 
-#include "config.h"
-
-/**
- * Size of heap
- */
-#define JMEM_HEAP_SIZE ((size_t) (CONFIG_MEM_HEAP_AREA_SIZE))
-
-/**
- * Logarithm of required alignment for allocated units/blocks
- */
-#define JMEM_ALIGNMENT_LOG   3
-
-#endif /* !JMEM_CONFIG_H */
+b[0] = 5.6;
+assert(a[2] === 5);

@@ -56,6 +56,7 @@ def get_arguments():
     parser.add_argument('-j', '--jobs', metavar='N', action='store', type=int, default=multiprocessing.cpu_count() + 1, help='Allowed N build jobs at once (default: %(default)s)')
     parser.add_argument('--jerry-cmdline', metavar='X', choices=['ON', 'OFF'], default='ON', type=str.upper, help='build jerry command line tool (%(choices)s; default: %(default)s)')
     parser.add_argument('--jerry-cmdline-minimal', metavar='X', choices=['ON', 'OFF'], default='OFF', type=str.upper, help='build minimal version of the jerry command line tool (%(choices)s; default: %(default)s)')
+    parser.add_argument('--jerry-debugger', metavar='X', choices=['ON', 'OFF'], default='OFF', type=str.upper, help='enable the jerry debugger (%(choices)s; default: %(default)s)')
     parser.add_argument('--jerry-libc', metavar='X', choices=['ON', 'OFF'], default='ON', type=str.upper, help='build and use jerry-libc (%(choices)s; default: %(default)s)')
     parser.add_argument('--jerry-libm', metavar='X', choices=['ON', 'OFF'], default='ON', type=str.upper, help='build and use jerry-libm (%(choices)s; default: %(default)s)')
     parser.add_argument('--js-parser', metavar='X', choices=['ON', 'OFF'], default='ON', type=str.upper, help='enable js-parser (%(choices)s; default: %(default)s)')
@@ -67,6 +68,7 @@ def get_arguments():
     parser.add_argument('--profile', metavar='FILE', action='store', default=DEFAULT_PROFILE, help='specify profile file (default: %(default)s)')
     parser.add_argument('--snapshot-exec', metavar='X', choices=['ON', 'OFF'], default='OFF', type=str.upper, help='enable executing snapshot files (%(choices)s; default: %(default)s)')
     parser.add_argument('--snapshot-save', metavar='X', choices=['ON', 'OFF'], default='OFF', type=str.upper, help='enable saving snapshot files (%(choices)s; default: %(default)s)')
+    parser.add_argument('--system-allocator', metavar='X', choices=['ON', 'OFF'], default='OFF', type=str.upper, help='enable system allocator (%(choices)s; default: %(default)s)')
     parser.add_argument('--static-link', metavar='X', choices=['ON', 'OFF'], default='ON', type=str.upper, help='enable static linking of binaries (%(choices)s; default: %(default)s)')
     parser.add_argument('--strip', metavar='X', choices=['ON', 'OFF'], default='ON', type=str.upper, help='strip release binaries (%(choices)s; default: %(default)s)')
     parser.add_argument('--toolchain', metavar='FILE', action='store', default=default_toolchain(), help='add toolchain file (default: %(default)s)')
@@ -116,8 +118,10 @@ def generate_build_options(arguments):
 
     build_options.append('-DFEATURE_PROFILE=%s' % PROFILE)
 
+    build_options.append('-DFEATURE_DEBUGGER=%s' % arguments.jerry_debugger)
     build_options.append('-DFEATURE_SNAPSHOT_EXEC=%s' % arguments.snapshot_exec)
     build_options.append('-DFEATURE_SNAPSHOT_SAVE=%s' % arguments.snapshot_save)
+    build_options.append('-DFEATURE_SYSTEM_ALLOCATOR=%s' % arguments.system_allocator)
     build_options.append('-DENABLE_STATIC_LINK=%s' % arguments.static_link)
     build_options.append('-DENABLE_STRIP=%s' % arguments.strip)
 

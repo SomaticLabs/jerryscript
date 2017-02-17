@@ -18,7 +18,7 @@
 #include <stdlib.h>
 #include <setjmp.h>
 
-#include "jerry-api.h"
+#include "jerryscript.h"
 #include "jerry-port.h"
 
 /**
@@ -31,6 +31,24 @@
  */
 #define JERRY_STANDALONE_EXIT_CODE_OK   (0)
 #define JERRY_STANDALONE_EXIT_CODE_FAIL (1)
+
+/**
+ * Print usage and available options
+ */
+static void
+print_help (char *name)
+{
+  jerry_port_console ("Usage: %s [OPTION]... [FILE]...\n"
+                      "\n"
+                      "Options:\n"
+                      "  --log-level [0-3]\n"
+                      "  --mem-stats\n"
+                      "  --mem-stats-separate\n"
+                      "  --show-opcodes\n"
+                      "  --start-debug-server\n"
+                      "\n",
+                      name);
+} /* print_help */
 
 /**
  * Read source files.
@@ -187,7 +205,12 @@ int jerry_main (int argc, char *argv[])
 
   for (i = 1; i < argc; i++)
   {
-    if (!strcmp ("--mem-stats", argv[i]))
+    if (!strcmp ("-h", argv[i]) || !strcmp ("--help", argv[i]))
+    {
+      print_help (argv[0]);
+      return JERRY_STANDALONE_EXIT_CODE_OK;
+    }
+    else if (!strcmp ("--mem-stats", argv[i]))
     {
       flags |= JERRY_INIT_MEM_STATS;
     }
@@ -210,6 +233,10 @@ int jerry_main (int argc, char *argv[])
         jerry_port_log (JERRY_LOG_LEVEL_ERROR, "Error: wrong format or invalid argument\n");
         return JERRY_STANDALONE_EXIT_CODE_FAIL;
       }
+    }
+    else if (!strcmp ("--start-debug-server", argv[i]))
+    {
+      flags |= JERRY_INIT_DEBUGGER;
     }
     else
     {

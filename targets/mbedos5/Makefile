@@ -39,7 +39,7 @@ MBED_CLI_FLAGS += --build $(EXTERN_BUILD_DIR)
 endif
 
 ifeq ($(DEBUG), 1)
-MBED_CLI_FLAGS += -o debug-info
+MBED_CLI_FLAGS += --profile ./mbed-os/tools/profiles/debug.json
 endif
 
 ifeq ($(MBED_VERBOSE), 1)
@@ -87,4 +87,8 @@ getlibs: .mbed
 	mbed deploy
 
 ../../.mbedignore:
+ifeq ($(OS),Windows_NT)
+	copy template-mbedignore.txt ..\..\.mbedignore
+else
 	cp ./template-mbedignore.txt ../../.mbedignore
+endif

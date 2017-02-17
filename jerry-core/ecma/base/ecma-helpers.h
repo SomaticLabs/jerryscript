@@ -17,7 +17,7 @@
 #define ECMA_HELPERS_H
 
 #include "ecma-globals.h"
-#include "jmem-allocator.h"
+#include "jmem.h"
 #include "lit-strings.h"
 
 /** \addtogroup ecma ECMA
@@ -185,6 +185,18 @@ lit_utf8_size_t __attr_return_value_should_be_checked___
 ecma_string_copy_to_utf8_buffer (const ecma_string_t *string_desc_p,
                                  lit_utf8_byte_t *buffer_p,
                                  lit_utf8_size_t buffer_size);
+lit_utf8_size_t
+ecma_substring_copy_to_cesu8_buffer (const ecma_string_t *string_desc_p,
+                                     ecma_length_t start_pos,
+                                     ecma_length_t end_pos,
+                                     lit_utf8_byte_t *buffer_p,
+                                     lit_utf8_size_t buffer_size);
+lit_utf8_size_t
+ecma_substring_copy_to_utf8_buffer (const ecma_string_t *string_desc_p,
+                                    ecma_length_t start_pos,
+                                    ecma_length_t end_pos,
+                                    lit_utf8_byte_t *buffer_p,
+                                    lit_utf8_size_t buffer_size);
 void ecma_string_to_utf8_bytes (const ecma_string_t *string_desc_p, lit_utf8_byte_t *buffer_p,
                                 lit_utf8_size_t buffer_size);
 const lit_utf8_byte_t *ecma_string_raw_chars (const ecma_string_t *string_p, lit_utf8_size_t *size_p, bool *is_ascii_p);

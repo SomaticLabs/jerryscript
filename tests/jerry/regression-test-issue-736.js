@@ -31,7 +31,7 @@ try {
 }
 
 try {
-  eval("var x; x instanceof assert;");
+  eval("var x = {}; x instanceof assert;");
   assert(false);
 } catch(e) {
   assert(e instanceof TypeError);

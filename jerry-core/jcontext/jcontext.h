@@ -20,8 +20,8 @@
 #define JCONTEXT_H
 
 #include "ecma-builtins.h"
-#include "jmem-allocator.h"
-#include "jmem-config.h"
+#include "jerry-debugger.h"
+#include "jmem.h"
 #include "re-bytecode.h"
 #include "vm-defines.h"
 
@@ -82,6 +82,17 @@ typedef struct
   uint8_t re_cache_idx; /**< evicted item index when regex cache is full (round-robin) */
 #endif /* !CONFIG_DISABLE_REGEXP_BUILTIN */
 
+#ifdef JERRY_DEBUGGER
+  uint32_t debugger_message_delay; /**< call receive message when reaches zero */
+  uint8_t debugger_send_buffer[JERRY_DEBUGGER_MAX_BUFFER_SIZE]; /**< buffer for sending messages */
+  uint8_t debugger_receive_buffer[JERRY_DEBUGGER_MAX_BUFFER_SIZE]; /**< buffer for receiving messages */
+  jmem_cpointer_t debugger_byte_code_free_head; /**< head of byte code free linked list */
+  uint32_t debugger_receive_buffer_offset; /**< receive buffer offset */
+  int debugger_connection; /**< hold the file descriptor for socket communication */
+  bool debugger_stop_exec; /**< stop at the next breakpoint regardless it is enabled */
+  vm_frame_ctx_t *debugger_stop_context; /**< stop only if the current context is equal to this context */
+#endif /* JERRY_DEBUGGER */
+
 #ifdef JMEM_STATS
   jmem_heap_stats_t jmem_heap_stats; /**< heap's memory usage statistics */
   jmem_pools_stats_t jmem_pools_stats; /**< pools' memory usage statistics */
@@ -136,10 +147,12 @@ typedef struct
  */
 extern jerry_context_t jerry_global_context;
 
+#ifndef JERRY_SYSTEM_ALLOCATOR
 /**
  * Global heap.
  */
 extern jmem_heap_t jerry_global_heap;
+#endif /* !JERRY_SYSTEM_ALLOCATOR */
 
 #ifndef CONFIG_ECMA_LCACHE_DISABLE
 
@@ -155,10 +168,12 @@ extern jerry_hash_table_t jerry_global_hash_table;
  */
 #define JERRY_CONTEXT(field) (jerry_global_context.field)
 
+#ifndef JERRY_SYSTEM_ALLOCATOR
 /**
  * Provides a reference to the area field of the heap.
  */
 #define JERRY_HEAP_CONTEXT(field) (jerry_global_heap.field)
+#endif /* !JERRY_SYSTEM_ALLOCATOR */
 
 #ifndef CONFIG_ECMA_LCACHE_DISABLE
 
