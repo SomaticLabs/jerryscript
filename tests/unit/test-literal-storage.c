@@ -38,7 +38,7 @@ generate_string (lit_utf8_byte_t *str, lit_utf8_size_t len)
 } /* generate_string */
 
 static ecma_number_t
-generate_number ()
+generate_number (void)
 {
   ecma_number_t num = ((ecma_number_t) rand () / 32767.0);
   if (rand () % 2)
@@ -54,7 +54,7 @@ generate_number ()
 } /* generate_number */
 
 int
-main ()
+main (void)
 {
   TEST_INIT ();
 
@@ -85,7 +85,7 @@ main ()
       }
       else if (type == 1)
       {
-        lit_magic_string_id_t msi = (lit_magic_string_id_t) (rand () % LIT_MAGIC_STRING__COUNT);
+        lit_magic_string_id_t msi = (lit_magic_string_id_t) (rand () % LIT_NON_INTERNAL_MAGIC_STRING__COUNT);
         ptrs[j] = lit_get_magic_string_utf8 (msi);
         TEST_ASSERT (ptrs[j]);
         lengths[j] = (lit_utf8_size_t) lit_zt_utf8_string_size (ptrs[j]);

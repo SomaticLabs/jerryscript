@@ -57,6 +57,7 @@ def get_arguments():
     parser.add_argument('--jerry-cmdline', metavar='X', choices=['ON', 'OFF'], default='ON', type=str.upper, help='build jerry command line tool (%(choices)s; default: %(default)s)')
     parser.add_argument('--jerry-cmdline-minimal', metavar='X', choices=['ON', 'OFF'], default='OFF', type=str.upper, help='build minimal version of the jerry command line tool (%(choices)s; default: %(default)s)')
     parser.add_argument('--jerry-debugger', metavar='X', choices=['ON', 'OFF'], default='OFF', type=str.upper, help='enable the jerry debugger (%(choices)s; default: %(default)s)')
+    parser.add_argument('--jerry-debugger-port', metavar='N', action='store', type=int, default=5001, help='add custom port number (default: %(default)s)')
     parser.add_argument('--jerry-libc', metavar='X', choices=['ON', 'OFF'], default='ON', type=str.upper, help='build and use jerry-libc (%(choices)s; default: %(default)s)')
     parser.add_argument('--jerry-libm', metavar='X', choices=['ON', 'OFF'], default='ON', type=str.upper, help='build and use jerry-libm (%(choices)s; default: %(default)s)')
     parser.add_argument('--js-parser', metavar='X', choices=['ON', 'OFF'], default='ON', type=str.upper, help='enable js-parser (%(choices)s; default: %(default)s)')
@@ -119,6 +120,7 @@ def generate_build_options(arguments):
     build_options.append('-DFEATURE_PROFILE=%s' % PROFILE)
 
     build_options.append('-DFEATURE_DEBUGGER=%s' % arguments.jerry_debugger)
+    build_options.append('-DFEATURE_DEBUGGER_PORT=%d' % arguments.jerry_debugger_port)
     build_options.append('-DFEATURE_SNAPSHOT_EXEC=%s' % arguments.snapshot_exec)
     build_options.append('-DFEATURE_SNAPSHOT_SAVE=%s' % arguments.snapshot_save)
     build_options.append('-DFEATURE_SYSTEM_ALLOCATOR=%s' % arguments.system_allocator)
@@ -143,31 +145,27 @@ def generate_build_options(arguments):
     return build_options
 
 def configure_output_dir(arguments):
-    global BUILD_DIR
+    if not path.isabs(arguments.builddir):
+        arguments.builddir = path.join(PROJECT_DIR, arguments.builddir)
 
-    if path.isabs(arguments.builddir):
-        BUILD_DIR = arguments.builddir
-    else:
-        BUILD_DIR = path.join(PROJECT_DIR, arguments.builddir)
+    if arguments.clean and path.exists(arguments.builddir):
+        shutil.rmtree(arguments.builddir)
 
-    if arguments.clean and path.exists(BUILD_DIR):
-        shutil.rmtree(BUILD_DIR)
-
-    if not path.exists(BUILD_DIR):
-        makedirs(BUILD_DIR)
+    if not path.exists(arguments.builddir):
+        makedirs(arguments.builddir)
 
 def configure_build(arguments):
     configure_output_dir(arguments)
 
     build_options = generate_build_options(arguments)
 
-    cmake_cmd = ['cmake', '-B' + BUILD_DIR, '-H' + PROJECT_DIR]
+    cmake_cmd = ['cmake', '-B' + arguments.builddir, '-H' + PROJECT_DIR]
     cmake_cmd.extend(build_options)
 
     return subprocess.call(cmake_cmd)
 
 def build_jerry(arguments):
-    return subprocess.call(['make', '--no-print-directory','-j', str(arguments.jobs), '-C', BUILD_DIR])
+    return subprocess.call(['make', '--no-print-directory','-j', str(arguments.jobs), '-C', arguments.builddir])
 
 def print_result(ret):
     print('=' * 30)

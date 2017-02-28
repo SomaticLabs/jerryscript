@@ -175,7 +175,7 @@ jerry_cleanup (void)
   ecma_finalize ();
 
 #ifdef JERRY_DEBUGGER
-  if (JERRY_CONTEXT (jerry_init_flags) & JERRY_INIT_DEBUGGER)
+  if (JERRY_CONTEXT (debugger_flags) & JERRY_DEBUGGER_CONNECTED)
   {
     jerry_debugger_close_connection ();
   }
@@ -329,9 +329,9 @@ jerry_parse_named_resource (const jerry_char_t *name_p, /**< name (usually a fil
                             bool is_strict) /**< strict mode */
 {
 #ifdef JERRY_DEBUGGER
-  if (JERRY_CONTEXT (jerry_init_flags) & JERRY_INIT_DEBUGGER)
+  if (JERRY_CONTEXT (debugger_flags) & JERRY_DEBUGGER_CONNECTED)
   {
-    jerry_debugger_send_string (JERRY_DEBUGGER_RESOURCE_NAME, name_p, name_length);
+    jerry_debugger_send_string (JERRY_DEBUGGER_SOURCE_CODE_NAME, name_p, name_length);
   }
 #else /* JERRY_DEBUGGER */
   JERRY_UNUSED (name_p);
@@ -1914,7 +1914,7 @@ jerry_get_object_native_handle (const jerry_value_t obj_val, /**< object to get 
   uintptr_t handle_value;
 
   bool does_exist = ecma_get_external_pointer_value (ecma_get_object_from_value (obj_val),
-                                                     ECMA_INTERNAL_PROPERTY_NATIVE_HANDLE,
+                                                     LIT_INTERNAL_MAGIC_STRING_NATIVE_HANDLE,
                                                      &handle_value);
 
   if (does_exist)
@@ -1947,11 +1947,11 @@ jerry_set_object_native_handle (const jerry_value_t obj_val, /**< object to set 
   ecma_object_t *object_p = ecma_get_object_from_value (obj_val);
 
   ecma_create_external_pointer_property (object_p,
-                                         ECMA_INTERNAL_PROPERTY_NATIVE_HANDLE,
+                                         LIT_INTERNAL_MAGIC_STRING_NATIVE_HANDLE,
                                          handle_p);
 
   ecma_create_external_pointer_property (object_p,
-                                         ECMA_INTERNAL_PROPERTY_FREE_CALLBACK,
+                                         LIT_INTERNAL_MAGIC_STRING_FREE_CALLBACK,
                                          (uintptr_t) freecb_p);
 } /* jerry_set_object_native_handle */
 
