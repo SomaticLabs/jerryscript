@@ -1,4 +1,12 @@
-b do_backtrace.js:32
-c
+next
+n
+next
+step
+next
+s
 bt
+n
+n
+s
+backtrace
 c

@@ -1,13 +1,9 @@
 b f
 n
-n
-n
+next
 s
-src
+source 0
 n
-b f
-c
-src
-c
+step
 src
 c

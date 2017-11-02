@@ -17,20 +17,7 @@
 
 #include <zephyr.h>
 
-#include "jerry-port.h"
-
-/**
- * Provide console message implementation for the engine.
- */
-void
-jerry_port_console (const char *format, /**< format string */
-                    ...) /**< parameters */
-{
-  va_list args;
-  va_start (args, format);
-  vfprintf (stdout, format, args);
-  va_end (args);
-} /* jerry_port_console */
+#include "jerryscript-port.h"
 
 
 /**
@@ -65,7 +52,7 @@ void jerry_port_fatal (jerry_fatal_code_t code)
  * @return current timer's counter value in milliseconds
  */
 double
-jerry_port_get_current_time ()
+jerry_port_get_current_time (void)
 {
   int64_t ms = k_uptime_get();
   return (double) ms;
@@ -85,3 +72,13 @@ jerry_port_get_time_zone (jerry_time_zone_t *tz_p)
 
   return true;
 } /* jerry_port_get_time_zone */
+
+/**
+ * Provide the implementation of jerryx_port_handler_print_char.
+ * Uses 'printf' to print a single character to standard output.
+ */
+void
+jerryx_port_handler_print_char (char c) /**< the character to print */
+{
+  printf ("%c", c);
+} /* jerryx_port_handler_print_char */

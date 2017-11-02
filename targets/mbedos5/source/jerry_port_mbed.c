@@ -18,29 +18,9 @@
 #include <stdlib.h>
 #include <sys/time.h>
 
-#include "jerry-core/jerry-port.h"
+#include "jerry-core/include/jerryscript-port.h"
 
 #include "us_ticker_api.h"
-
-#ifndef JSMBED_OVERRIDE_JERRY_PORT_CONSOLE
-/**
- * Provide console message implementation for the engine.
- */
-void
-jerry_port_console (const char *format, /**< format string */
-                    ...) /**< parameters */
-{
-  va_list args;
-  va_start (args, format);
-  vfprintf (stdout, format, args);
-  va_end (args);
-
-  if (strlen (format) == 1 && format[0] == 0x0a) /* line feed (\n) */
-  {
-    printf ("\r"); /* add CR for proper display in serial monitors */
-  }
-} /* jerry_port_console */
-#endif /* JSMBED_OVERRIDE_JERRY_PORT_CONSOLE */
 
 #ifndef JSMBED_OVERRIDE_JERRY_PORT_LOG
 /**
@@ -66,15 +46,6 @@ jerry_port_log (jerry_log_level_t level, /**< log level */
 #endif /* JSMBED_OVERRIDE_JERRY_PORT_LOG */
 
 /**
- * Implementation of jerry_port_fatal.
- */
-void
-jerry_port_fatal (jerry_fatal_code_t code) /**< fatal code enum item */
-{
-  exit (code);
-} /* jerry_port_fatal */
-
-/**
  * Implementation of jerry_port_get_time_zone.
  *
  * @return true - if success
@@ -90,10 +61,34 @@ jerry_port_get_time_zone (jerry_time_zone_t *tz_p) /**< timezone pointer */
 /**
  * Implementation of jerry_port_get_current_time.
  *
- * @return current timer's counter value in microseconds
+ * @return current timer's counter value in milliseconds
  */
 double
-jerry_port_get_current_time ()
+jerry_port_get_current_time (void)
 {
-  return (double) us_ticker_read ();
+  static uint64_t last_tick = 0;
+  static time_t last_time = 0;
+  static uint32_t skew = 0;
+
+  uint64_t curr_tick = us_ticker_read (); /* The value is in microseconds. */
+  time_t curr_time = time(NULL); /*  The value is in seconds. */
+  double result = curr_time * 1000;
+
+  /* The us_ticker_read () has an overflow for each UINT_MAX microseconds
+   * (~71 mins). For each overflow event the ticker-based clock is about 33
+   * milliseconds fast. Without a timer thread the milliseconds part of the
+   * time can be corrected if the difference of two get_current_time calls
+   * are within the mentioned 71 mins. Above that interval we can assume
+   * that the milliseconds part of the time is negligibe.
+   */
+  if (curr_time - last_time > (time_t)(((uint32_t)-1) / 1000000)) {
+    skew = 0;
+  } else if (last_tick > curr_tick) {
+    skew = (skew + 33) % 1000;
+  }
+  result += (curr_tick / 1000 - skew) % 1000;
+
+  last_tick = curr_tick;
+  last_time = curr_time;
+  return result;
 } /* jerry_port_get_current_time */

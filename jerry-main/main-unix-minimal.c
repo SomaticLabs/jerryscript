@@ -16,7 +16,7 @@
 #include <string.h>
 
 #include "jerryscript.h"
-#include "jerry-port-default.h"
+#include "jerryscript-port.h"
 
 /**
  * Maximum size of source code / snapshots buffer
@@ -59,12 +59,12 @@ read_file (const char *file_name,
 static void
 print_help (char *name)
 {
-  jerry_port_console ("Usage: %s [OPTION]... [FILE]...\n"
-                      "\n"
-                      "Options:\n"
-                      "  -h, --help\n"
-                      "\n",
-                      name);
+  printf ("Usage: %s [OPTION]... [FILE]...\n"
+          "\n"
+          "Options:\n"
+          "  -h, --help\n"
+          "\n",
+          name);
 } /* print_help */
 
 int
@@ -80,11 +80,9 @@ main (int argc,
   jerry_init (JERRY_INIT_EMPTY);
   jerry_value_t ret_value = jerry_create_undefined ();
 
-  const char *file_name;
-
   for (int i = 1; i < argc; i++)
   {
-    file_name = argv[i];
+    const char *file_name = argv[i];
     size_t source_size;
 
     const jerry_char_t *source_p = read_file (file_name, &source_size);

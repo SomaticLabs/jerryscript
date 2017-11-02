@@ -16,21 +16,8 @@
 /*
  * Global built-in description
  */
-#ifndef SIMPLE_VALUE
-# define SIMPLE_VALUE(name, simple_value, prop_attributes)
-#endif /* !SIMPLE_VALUE */
 
-#ifndef NUMBER_VALUE
-# define NUMBER_VALUE(name, number_value, prop_attributes)
-#endif /* !NUMBER_VALUE */
-
-#ifndef OBJECT_VALUE
-# define OBJECT_VALUE(name, obj_builtin_id, prop_attributes)
-#endif /* !OBJECT_VALUE */
-
-#ifndef ROUTINE
-# define ROUTINE(name, c_function_name, args_number, length_prop_value)
-#endif /* !ROUTINE */
+#include "ecma-builtin-helpers-macro-defines.inc.h"
 
 /* Simple value properties:
  * (property name, simple value, writable, enumerable, configurable) */
@@ -160,13 +147,11 @@ OBJECT_VALUE (LIT_MAGIC_STRING_JSON_U,
               ECMA_PROPERTY_CONFIGURABLE_WRITABLE)
 #endif /* !CONFIG_DISABLE_JSON_BUILTIN */
 
-#ifndef CONFIG_DISABLE_ARRAYBUFFER_BUILTIN
+#ifndef CONFIG_DISABLE_ES2015_TYPEDARRAY_BUILTIN
 OBJECT_VALUE (LIT_MAGIC_STRING_ARRAY_BUFFER_UL,
               ECMA_BUILTIN_ID_ARRAYBUFFER,
               ECMA_PROPERTY_CONFIGURABLE_WRITABLE)
-#endif /* !CONFIG_DISABLE_ARRAYBUFFER_BUILTIN */
 
-#ifndef CONFIG_DISABLE_TYPEDARRAY_BUILTIN
 OBJECT_VALUE (LIT_MAGIC_STRING_INT8_ARRAY_UL,
               ECMA_BUILTIN_ID_INT8ARRAY,
               ECMA_PROPERTY_CONFIGURABLE_WRITABLE)
@@ -205,12 +190,15 @@ OBJECT_VALUE (LIT_MAGIC_STRING_UINT8_CLAMPED_ARRAY_UL,
               ECMA_BUILTIN_ID_UINT8CLAMPEDARRAY,
               ECMA_PROPERTY_CONFIGURABLE_WRITABLE)
 
-#endif /* !CONFIG_DISABLE_ARRAYBUFFER_BUILTIN */
+#endif /* !CONFIG_DISABLE_ES2015_TYPEDARRAY_BUILTIN */
+#ifndef CONFIG_DISABLE_ES2015_PROMISE_BUILTIN
+OBJECT_VALUE (LIT_MAGIC_STRING_PROMISE_UL,
+              ECMA_BUILTIN_ID_PROMISE,
+              ECMA_PROPERTY_CONFIGURABLE_WRITABLE)
+#endif /* !CONFIG_DISABLE_ES2015_PROMISE_BUILTIN */
+
 /* Routine properties:
  *  (property name, C routine name, arguments number or NON_FIXED, value of the routine's length property) */
-
-/* Implementation-defined 'print' routine */
-ROUTINE (LIT_MAGIC_STRING_PRINT, ecma_builtin_global_object_print, NON_FIXED, 1)
 
 ROUTINE (LIT_MAGIC_STRING_EVAL, ecma_builtin_global_object_eval, 1, 1)
 ROUTINE (LIT_MAGIC_STRING_PARSE_FLOAT, ecma_builtin_global_object_parse_float, 1, 1)
@@ -227,10 +215,4 @@ ROUTINE (LIT_MAGIC_STRING_ESCAPE, ecma_builtin_global_object_escape, 1, 1)
 ROUTINE (LIT_MAGIC_STRING_UNESCAPE, ecma_builtin_global_object_unescape, 1, 1)
 #endif /* !CONFIG_DISABLE_ANNEXB_BUILTIN */
 
-#undef SIMPLE_VALUE
-#undef NUMBER_VALUE
-#undef STRING_VALUE
-#undef OBJECT_VALUE
-#undef ROUTINE
-#undef ACCESSOR_READ_WRITE
-#undef ACCESSOR_READ_ONLY
+#include "ecma-builtin-helpers-macro-undefs.inc.h"

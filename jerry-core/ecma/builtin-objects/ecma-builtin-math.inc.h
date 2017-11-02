@@ -16,21 +16,10 @@
 /*
  * Math built-in description
  */
-#ifndef SIMPLE_VALUE
-# define SIMPLE_VALUE(name, simple_value, prop_attributes)
-#endif /* !SIMPLE_VALUE */
 
-#ifndef NUMBER_VALUE
-# define NUMBER_VALUE(name, number_value, prop_attributes)
-#endif /* !NUMBER_VALUE */
+#include "ecma-builtin-helpers-macro-defines.inc.h"
 
-#ifndef OBJECT_VALUE
-# define OBJECT_VALUE(name, obj_builtin_id, prop_attributes)
-#endif /* !OBJECT_VALUE */
-
-#ifndef ROUTINE
-# define ROUTINE(name, c_function_name, args_number, length_prop_value)
-#endif /* !ROUTINE */
+#ifndef CONFIG_DISABLE_MATH_BUILTIN
 
 /* Number properties:
  *  (property name, number value, writable, enumerable, configurable) */
@@ -96,10 +85,6 @@ ROUTINE (LIT_MAGIC_STRING_SIN, ECMA_MATH_OBJECT_SIN, 1, 1)
 ROUTINE (LIT_MAGIC_STRING_SQRT, ECMA_MATH_OBJECT_SQRT, 1, 1)
 ROUTINE (LIT_MAGIC_STRING_TAN, ECMA_MATH_OBJECT_TAN, 1, 1)
 
-#undef SIMPLE_VALUE
-#undef NUMBER_VALUE
-#undef STRING_VALUE
-#undef OBJECT_VALUE
-#undef ROUTINE
-#undef ACCESSOR_READ_WRITE
-#undef ACCESSOR_READ_ONLY
+#endif /* !CONFIG_DISABLE_MATH_BUILTIN */
+
+#include "ecma-builtin-helpers-macro-undefs.inc.h"

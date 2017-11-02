@@ -18,25 +18,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>
-#include "jerry-port.h"
-
-/**
- * Provide console message implementation for the engine.
- * Curie BSP implementation
- */
-void
-jerry_port_console (const char *format, /**< format string */
-                    ...) /**< parameters */
-{
-  char buf[256];
-  int length = 0;
-  va_list args;
-  va_start (args, format);
-  length = vsnprintf (buf, 256, format, args);
-  buf[length] = '\0';
-  printk ("%s", buf);
-  va_end (args);
-} /* jerry_port_console */
+#include "jerryscript-port.h"
 
 /**
  * Provide log message implementation for the engine.
@@ -84,7 +66,7 @@ bool jerry_port_get_time_zone (jerry_time_zone_t *tz_p)
 /**
  * Curie BSP implementation of jerry_port_get_current_time.
  */
-double jerry_port_get_current_time ()
+double jerry_port_get_current_time (void)
 {
   uint32_t uptime_ms = get_uptime_ms ();
   uint32_t epoch_time = uptime_to_epoch (uptime_ms);

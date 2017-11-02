@@ -19,18 +19,21 @@
 #include <string.h>
 
 #include "jerryscript.h"
-#include "jerry-port.h"
-#include "jerry-port-default.h"
+#include "jerryscript-ext/handler.h"
+#include "jerryscript-port.h"
+#include "jerryscript-port-default.h"
+
+#include "cli.h"
 
 /**
- * Maximum command line arguments number
- */
-#define JERRY_MAX_COMMAND_LINE_ARGS (64)
-
-/**
- * Maximum size of source code / snapshots buffer
+ * Maximum size of source code
  */
 #define JERRY_BUFFER_SIZE (1048576)
+
+/**
+ * Maximum size of snapshots buffer
+ */
+#define JERRY_SNAPSHOT_BUFFER_SIZE (JERRY_BUFFER_SIZE / sizeof (uint32_t))
 
 /**
  * Standalone Jerry exit codes
@@ -45,7 +48,7 @@
 
 static uint8_t buffer[ JERRY_BUFFER_SIZE ];
 
-static const uint8_t *
+static const uint32_t *
 read_file (const char *file_name,
            size_t *out_size_p)
 {
@@ -75,72 +78,13 @@ read_file (const char *file_name,
   fclose (file);
 
   *out_size_p = bytes_read;
-  return (const uint8_t *) buffer;
+  return (const uint32_t *) buffer;
 } /* read_file */
-
-/**
- * Provide the 'assert' implementation for the engine.
- *
- * @return true - if only one argument was passed and the argument is a boolean true.
- */
-static jerry_value_t
-assert_handler (const jerry_value_t func_obj_val __attribute__((unused)), /**< function object */
-                const jerry_value_t this_p __attribute__((unused)), /**< this arg */
-                const jerry_value_t args_p[], /**< function arguments */
-                const jerry_length_t args_cnt) /**< number of function arguments */
-{
-  if (args_cnt == 1
-      && jerry_value_is_boolean (args_p[0])
-      && jerry_get_boolean_value (args_p[0]))
-  {
-    return jerry_create_boolean (true);
-  }
-  else
-  {
-    jerry_port_log (JERRY_LOG_LEVEL_ERROR, "Script Error: assertion failed\n");
-    exit (JERRY_STANDALONE_EXIT_CODE_FAIL);
-  }
-} /* assert_handler */
-
-static void
-print_usage (char *name)
-{
-  jerry_port_console ("Usage: %s [OPTION]... [FILE]...\n"
-                      "Try '%s --help' for more information.\n",
-                      name,
-                      name);
-} /* print_usage */
-
-static void
-print_help (char *name)
-{
-  jerry_port_console ("Usage: %s [OPTION]... [FILE]...\n"
-                      "\n"
-                      "Options:\n"
-                      "  -h, --help\n"
-                      "  -v, --version\n"
-                      "  --mem-stats\n"
-                      "  --mem-stats-separate\n"
-                      "  --parse-only\n"
-                      "  --show-opcodes\n"
-                      "  --show-regexp-opcodes\n"
-                      "  --start-debug-server\n"
-                      "  --save-snapshot-for-global FILE\n"
-                      "  --save-snapshot-for-eval FILE\n"
-                      "  --save-literals-list-format FILE\n"
-                      "  --save-literals-c-format FILE\n"
-                      "  --exec-snapshot FILE\n"
-                      "  --log-level [0-3]\n"
-                      "  --abort-on-fail\n"
-                      "  --no-prompt\n"
-                      "\n",
-                      name);
-} /* print_help */
 
 /**
  * Check whether an error is a SyntaxError or not
  *
- * @return true  - if param is SyntaxError
+ * @return true - if param is SyntaxError
  *         false - otherwise
  */
 static bool
@@ -160,6 +104,7 @@ jerry_value_is_syntax_error (jerry_value_t error_value) /**< error value */
   if (jerry_value_has_error_flag (error_name)
       || !jerry_value_is_string (error_name))
   {
+    jerry_release_value (error_name);
     return false;
   }
 
@@ -183,38 +128,13 @@ jerry_value_is_syntax_error (jerry_value_t error_value) /**< error value */
 } /* jerry_value_is_syntax_error */
 
 /**
- * Convert string into unsigned integer
- *
- * @return converted number
- */
-static uint32_t
-str_to_uint (const char *num_str_p) /**< string to convert */
-{
-  assert (jerry_is_feature_enabled (JERRY_FEATURE_ERROR_MESSAGES));
-
-  uint32_t result = 0;
-
-  while (*num_str_p != '\0')
-  {
-    assert (*num_str_p >= '0' && *num_str_p <= '9');
-
-    result *= 10;
-    result += (uint32_t) (*num_str_p - '0');
-    num_str_p++;
-  }
-
-  return result;
-} /* str_to_uint */
-
-/**
  * Print error value
  */
 static void
 print_unhandled_exception (jerry_value_t error_value) /**< error value */
 {
-  assert (jerry_value_has_error_flag (error_value));
+  assert (!jerry_value_has_error_flag (error_value));
 
-  jerry_value_clear_error_flag (&error_value);
   jerry_value_t err_str_val = jerry_value_to_string (error_value);
   jerry_size_t err_str_size = jerry_get_string_size (err_str_val);
   jerry_char_t err_str_buf[256];
@@ -233,18 +153,18 @@ print_unhandled_exception (jerry_value_t error_value) /**< error value */
 
     if (jerry_is_feature_enabled (JERRY_FEATURE_ERROR_MESSAGES) && jerry_value_is_syntax_error (error_value))
     {
-      uint32_t err_line = 0;
-      uint32_t err_col = 0;
+      unsigned int err_line = 0;
+      unsigned int err_col = 0;
 
       /* 1. parse column and line information */
-      for (uint32_t i = 0; i < sz; i++)
+      for (jerry_size_t i = 0; i < sz; i++)
       {
         if (!strncmp ((char *) (err_str_buf + i), "[line: ", 7))
         {
           i += 7;
 
           char num_str[8];
-          uint32_t j = 0;
+          unsigned int j = 0;
 
           while (i < sz && err_str_buf[i] != ',')
           {
@@ -254,7 +174,7 @@ print_unhandled_exception (jerry_value_t error_value) /**< error value */
           }
           num_str[j] = '\0';
 
-          err_line = str_to_uint (num_str);
+          err_line = (unsigned int) strtol (num_str, NULL, 10);
 
           if (strncmp ((char *) (err_str_buf + i), ", column: ", 10))
           {
@@ -272,17 +192,17 @@ print_unhandled_exception (jerry_value_t error_value) /**< error value */
           }
           num_str[j] = '\0';
 
-          err_col = str_to_uint (num_str);
+          err_col = (unsigned int) strtol (num_str, NULL, 10);
           break;
         }
       } /* for */
 
       if (err_line != 0 && err_col != 0)
       {
-        uint32_t curr_line = 1;
+        unsigned int curr_line = 1;
 
         bool is_printing_context = false;
-        uint32_t pos = 0;
+        unsigned int pos = 0;
 
         /* 2. seek and print */
         while (buffer[pos] != '\0')
@@ -329,26 +249,188 @@ print_unhandled_exception (jerry_value_t error_value) /**< error value */
   jerry_release_value (err_str_val);
 } /* print_unhandled_exception */
 
+/**
+ * Register a JavaScript function in the global object.
+ */
+static void
+register_js_function (const char *name_p, /**< name of the function */
+                      jerry_external_handler_t handler_p) /**< function callback */
+{
+  jerry_value_t result_val = jerryx_handler_register_global ((const jerry_char_t *) name_p, handler_p);
+
+  if (jerry_value_has_error_flag (result_val))
+  {
+    jerry_port_log (JERRY_LOG_LEVEL_WARNING, "Warning: failed to register '%s' method.", name_p);
+    jerry_value_clear_error_flag (&result_val);
+    print_unhandled_exception (result_val);
+  }
+
+  jerry_release_value (result_val);
+} /* register_js_function */
+
+#ifdef JERRY_DEBUGGER
+
+/**
+ * Runs the source code received by jerry_debugger_wait_for_client_source.
+ *
+ * @return result fo the source code execution
+ */
+static jerry_value_t
+wait_for_source_callback (const jerry_char_t *resource_name_p, /**< resource name */
+                          size_t resource_name_size, /**< size of resource name */
+                          const jerry_char_t *source_p, /**< source code */
+                          size_t source_size, /**< source code size */
+                          void *user_p __attribute__((unused))) /**< user pointer */
+{
+  jerry_value_t ret_val = jerry_parse_named_resource (resource_name_p,
+                                                      resource_name_size,
+                                                      source_p,
+                                                      source_size,
+                                                      false);
+
+  if (!jerry_value_has_error_flag (ret_val))
+  {
+    jerry_value_t func_val = ret_val;
+    ret_val = jerry_run (func_val);
+    jerry_release_value (func_val);
+  }
+
+  return ret_val;
+} /* wait_for_source_callback */
+
+#endif /* JERRY_DEBUGGER */
+
+/**
+ * Command line option IDs
+ */
+typedef enum
+{
+  OPT_HELP,
+  OPT_VERSION,
+  OPT_MEM_STATS,
+  OPT_PARSE_ONLY,
+  OPT_SHOW_OP,
+  OPT_SHOW_RE_OP,
+  OPT_DEBUG_SERVER,
+  OPT_DEBUG_PORT,
+  OPT_DEBUGGER_WAIT_SOURCE,
+  OPT_SAVE_SNAP_GLOBAL,
+  OPT_SAVE_SNAP_EVAL,
+  OPT_SAVE_LIT_LIST,
+  OPT_SAVE_LIT_C,
+  OPT_EXEC_SNAP,
+  OPT_EXEC_SNAP_FUNC,
+  OPT_LOG_LEVEL,
+  OPT_ABORT_ON_FAIL,
+  OPT_NO_PROMPT
+} main_opt_id_t;
+
+/**
+ * Command line options
+ */
+static const cli_opt_t main_opts[] =
+{
+  CLI_OPT_DEF (.id = OPT_HELP, .opt = "h", .longopt = "help",
+               .help = "print this help and exit"),
+  CLI_OPT_DEF (.id = OPT_VERSION, .opt = "v", .longopt = "version",
+               .help = "print tool and library version and exit"),
+  CLI_OPT_DEF (.id = OPT_MEM_STATS, .longopt = "mem-stats",
+               .help = "dump memory statistics"),
+  CLI_OPT_DEF (.id = OPT_PARSE_ONLY, .longopt = "parse-only",
+               .help = "don't execute JS input"),
+  CLI_OPT_DEF (.id = OPT_SHOW_OP, .longopt = "show-opcodes",
+               .help = "dump parser byte-code"),
+  CLI_OPT_DEF (.id = OPT_SHOW_RE_OP, .longopt = "show-regexp-opcodes",
+               .help = "dump regexp byte-code"),
+  CLI_OPT_DEF (.id = OPT_DEBUG_SERVER, .longopt = "start-debug-server",
+               .help = "start debug server and wait for a connecting client"),
+  CLI_OPT_DEF (.id = OPT_DEBUG_PORT, .longopt = "debug-port", .meta = "NUM",
+               .help = "debug server port (default: 5001)"),
+  CLI_OPT_DEF (.id = OPT_DEBUGGER_WAIT_SOURCE, .longopt = "debugger-wait-source",
+               .help = "wait for an executable source from the client"),
+  CLI_OPT_DEF (.id = OPT_SAVE_SNAP_GLOBAL, .longopt = "save-snapshot-for-global", .meta = "FILE",
+               .help = "save binary snapshot of parsed JS input (for execution in global context)"),
+  CLI_OPT_DEF (.id = OPT_SAVE_SNAP_EVAL, .longopt = "save-snapshot-for-eval", .meta = "FILE",
+               .help = "save binary snapshot of parsed JS input (for execution in local context by eval)"),
+  CLI_OPT_DEF (.id = OPT_SAVE_LIT_LIST, .longopt = "save-literals-list-format", .meta = "FILE",
+               .help = "export literals found in parsed JS input (in list format)"),
+  CLI_OPT_DEF (.id = OPT_SAVE_LIT_C, .longopt = "save-literals-c-format", .meta = "FILE",
+               .help = "export literals found in parsed JS input (in C source format)"),
+  CLI_OPT_DEF (.id = OPT_EXEC_SNAP, .longopt = "exec-snapshot", .meta = "FILE",
+               .help = "execute input snapshot file(s)"),
+  CLI_OPT_DEF (.id = OPT_EXEC_SNAP_FUNC, .longopt = "exec-snapshot-func", .meta = "FILE NUM",
+               .help = "execute specific function from input snapshot file(s)"),
+  CLI_OPT_DEF (.id = OPT_LOG_LEVEL, .longopt = "log-level", .meta = "NUM",
+               .help = "set log level (0-3)"),
+  CLI_OPT_DEF (.id = OPT_ABORT_ON_FAIL, .longopt = "abort-on-fail",
+               .help = "segfault on internal failure (instead of non-zero exit code)"),
+  CLI_OPT_DEF (.id = OPT_NO_PROMPT, .longopt = "no-prompt",
+               .help = "don't print prompt in REPL mode"),
+  CLI_OPT_DEF (.id = CLI_OPT_DEFAULT, .meta = "FILE",
+               .help = "input JS file(s)")
+};
+
+/**
+ * Check whether JerryScript has a requested feature enabled or not. If not,
+ * print a warning message.
+ *
+ * @return the status of the feature.
+ */
+static bool
+check_feature (jerry_feature_t feature, /**< feature to check */
+               const char *option) /**< command line option that triggered this check */
+{
+  if (!jerry_is_feature_enabled (feature))
+  {
+    jerry_port_default_set_log_level (JERRY_LOG_LEVEL_WARNING);
+    jerry_port_log (JERRY_LOG_LEVEL_WARNING, "Ignoring '%s' option because this feature is disabled!\n", option);
+    return false;
+  }
+  return true;
+} /* check_feature */
+
+/**
+ * Check whether a usage-related condition holds. If not, print an error
+ * message, print the usage, and terminate the application.
+ */
+static void
+check_usage (bool condition, /**< the condition that must hold */
+             const char *name, /**< name of the application (argv[0]) */
+             const char *msg, /**< error message to print if condition does not hold */
+             const char *opt) /**< optional part of the error message */
+{
+  if (!condition)
+  {
+    jerry_port_log (JERRY_LOG_LEVEL_ERROR, "%s: %s%s\n", name, msg, opt != NULL ? opt : "");
+    exit (JERRY_STANDALONE_EXIT_CODE_FAIL);
+  }
+} /* check_usage */
+
+#ifdef JERRY_ENABLE_EXTERNAL_CONTEXT
+
+/**
+ * The alloc function passed to jerry_create_instance
+ */
+static void *
+instance_alloc (size_t size,
+                void *cb_data_p __attribute__((unused)))
+{
+  return malloc (size);
+} /* instance_alloc */
+
+#endif /* JERRY_ENABLE_EXTERNAL_CONTEXT */
+
 int
 main (int argc,
       char **argv)
 {
-  if (argc > JERRY_MAX_COMMAND_LINE_ARGS)
-  {
-    jerry_port_log (JERRY_LOG_LEVEL_ERROR,
-                    "Error: too many command line arguments: %d (JERRY_MAX_COMMAND_LINE_ARGS=%d)\n",
-                    argc,
-                    JERRY_MAX_COMMAND_LINE_ARGS);
-
-    return JERRY_STANDALONE_EXIT_CODE_FAIL;
-  }
-
-  const char *file_names[JERRY_MAX_COMMAND_LINE_ARGS];
+  const char *file_names[argc];
   int files_counter = 0;
 
   jerry_init_flag_t flags = JERRY_INIT_EMPTY;
 
-  const char *exec_snapshot_file_names[JERRY_MAX_COMMAND_LINE_ARGS];
+  const char *exec_snapshot_file_names[argc];
+  uint32_t exec_snapshot_file_indices[argc];
   int exec_snapshots_count = 0;
 
   bool is_parse_only = false;
@@ -360,240 +442,192 @@ main (int argc,
   bool is_save_literals_mode_in_c_format_or_list = false;
   const char *save_literals_file_name_p = NULL;
 
+  bool start_debug_server = false;
+  uint16_t debug_port = 5001;
+
   bool is_repl_mode = false;
+  bool is_wait_mode = false;
   bool no_prompt = false;
 
-  for (int i = 1; i < argc; i++)
+  cli_state_t cli_state = cli_init (main_opts, argc - 1, argv + 1);
+  for (int id = cli_consume_option (&cli_state); id != CLI_OPT_END; id = cli_consume_option (&cli_state))
   {
-    if (!strcmp ("-h", argv[i]) || !strcmp ("--help", argv[i]))
+    switch (id)
     {
-      print_help (argv[0]);
-      return JERRY_STANDALONE_EXIT_CODE_OK;
-    }
-    else if (!strcmp ("-v", argv[i]) || !strcmp ("--version", argv[i]))
-    {
-      jerry_port_console ("Version: %d.%d%s\n", JERRY_API_MAJOR_VERSION, JERRY_API_MINOR_VERSION, JERRY_COMMIT_HASH);
-      return JERRY_STANDALONE_EXIT_CODE_OK;
-    }
-    else if (!strcmp ("--mem-stats", argv[i]))
-    {
-      if (jerry_is_feature_enabled (JERRY_FEATURE_MEM_STATS))
+      case OPT_HELP:
       {
-        jerry_port_default_set_log_level (JERRY_LOG_LEVEL_DEBUG);
-        flags |= JERRY_INIT_MEM_STATS;
+        cli_help (argv[0], NULL, main_opts);
+        return JERRY_STANDALONE_EXIT_CODE_OK;
       }
-      else
+      case OPT_VERSION:
       {
-        jerry_port_default_set_log_level (JERRY_LOG_LEVEL_WARNING);
-        jerry_port_log (JERRY_LOG_LEVEL_WARNING,
-                        "Ignoring 'mem-stats' option because this feature is disabled!\n");
+        printf ("Version: %d.%d%s\n", JERRY_API_MAJOR_VERSION, JERRY_API_MINOR_VERSION, JERRY_COMMIT_HASH);
+        return JERRY_STANDALONE_EXIT_CODE_OK;
       }
-    }
-    else if (!strcmp ("--mem-stats-separate", argv[i]))
-    {
-      if (jerry_is_feature_enabled (JERRY_FEATURE_MEM_STATS))
+      case OPT_MEM_STATS:
       {
-        jerry_port_default_set_log_level (JERRY_LOG_LEVEL_DEBUG);
-        flags |= JERRY_INIT_MEM_STATS_SEPARATE;
-      }
-      else
-      {
-        jerry_port_default_set_log_level (JERRY_LOG_LEVEL_WARNING);
-        jerry_port_log (JERRY_LOG_LEVEL_WARNING,
-                        "Ignoring 'mem-stats-separate' option because this feature is disabled!\n");
-      }
-    }
-    else if (!strcmp ("--parse-only", argv[i]))
-    {
-      is_parse_only = true;
-    }
-    else if (!strcmp ("--show-opcodes", argv[i]))
-    {
-      if (jerry_is_feature_enabled (JERRY_FEATURE_PARSER_DUMP))
-      {
-        jerry_port_default_set_log_level (JERRY_LOG_LEVEL_DEBUG);
-        flags |= JERRY_INIT_SHOW_OPCODES;
-      }
-      else
-      {
-        jerry_port_default_set_log_level (JERRY_LOG_LEVEL_WARNING);
-        jerry_port_log (JERRY_LOG_LEVEL_WARNING,
-                        "Ignoring 'show-opcodes' option because this feature is disabled!\n");
-      }
-    }
-    else if (!strcmp ("--show-regexp-opcodes", argv[i]))
-    {
-      if (jerry_is_feature_enabled (JERRY_FEATURE_PARSER_DUMP))
-      {
-        jerry_port_default_set_log_level (JERRY_LOG_LEVEL_DEBUG);
-        flags |= JERRY_INIT_SHOW_REGEXP_OPCODES;
-      }
-      else
-      {
-        jerry_port_default_set_log_level (JERRY_LOG_LEVEL_WARNING);
-        jerry_port_log (JERRY_LOG_LEVEL_WARNING,
-                        "Ignoring 'show-regexp-opcodes' option because this feature is disabled!\n");
-      }
-    }
-    else if (!strcmp ("--start-debug-server", argv[i]))
-    {
-      flags |= JERRY_INIT_DEBUGGER;
-    }
-    else if (!strcmp ("--save-snapshot-for-global", argv[i])
-             || !strcmp ("--save-snapshot-for-eval", argv[i]))
-    {
-      if (++i >= argc)
-      {
-        jerry_port_log (JERRY_LOG_LEVEL_ERROR, "Error: no file specified for %s\n", argv[i - 1]);
-        print_usage (argv[0]);
-        return JERRY_STANDALONE_EXIT_CODE_FAIL;
-      }
-
-      if (jerry_is_feature_enabled (JERRY_FEATURE_SNAPSHOT_SAVE))
-      {
-        is_save_snapshot_mode = true;
-        is_save_snapshot_mode_for_global_or_eval = !strcmp ("--save-snapshot-for-global", argv[i - 1]);
-
-        if (save_snapshot_file_name_p != NULL)
+        if (check_feature (JERRY_FEATURE_MEM_STATS, cli_state.arg))
         {
-          jerry_port_log (JERRY_LOG_LEVEL_ERROR, "Error: snapshot file name already specified\n");
-          print_usage (argv[0]);
-          return JERRY_STANDALONE_EXIT_CODE_FAIL;
+          jerry_port_default_set_log_level (JERRY_LOG_LEVEL_DEBUG);
+          flags |= JERRY_INIT_MEM_STATS;
         }
-
-        save_snapshot_file_name_p = argv[i];
+        break;
       }
-      else
+      case OPT_PARSE_ONLY:
       {
-        jerry_port_default_set_log_level (JERRY_LOG_LEVEL_WARNING);
-
-        jerry_port_log (JERRY_LOG_LEVEL_WARNING,
-                        "Ignoring 'save-snapshot' option because this feature is disabled!\n");
+        is_parse_only = true;
+        break;
       }
-    }
-    else if (!strcmp ("--exec-snapshot", argv[i]))
-    {
-      if (++i >= argc)
+      case OPT_SHOW_OP:
       {
-        jerry_port_log (JERRY_LOG_LEVEL_ERROR, "Error: no file specified for %s\n", argv[i - 1]);
-        print_usage (argv[0]);
-        return JERRY_STANDALONE_EXIT_CODE_FAIL;
-      }
-
-      if (jerry_is_feature_enabled (JERRY_FEATURE_SNAPSHOT_EXEC))
-      {
-        jerry_port_default_set_log_level (JERRY_LOG_LEVEL_DEBUG);
-
-        assert (exec_snapshots_count < JERRY_MAX_COMMAND_LINE_ARGS);
-        exec_snapshot_file_names[exec_snapshots_count++] = argv[i];
-      }
-      else
-      {
-        jerry_port_default_set_log_level (JERRY_LOG_LEVEL_WARNING);
-
-        jerry_port_log (JERRY_LOG_LEVEL_WARNING,
-                        "Ignoring 'exec-snapshot' option because this feature isn't enabled!\n");
-      }
-    }
-    else if (!strcmp ("--save-literals-list-format", argv[i])
-             || !strcmp ("--save-literals-c-format", argv[i]))
-    {
-      if (++i >= argc)
-      {
-        jerry_port_log (JERRY_LOG_LEVEL_ERROR, "Error: no file specified for %s\n", argv[i - 1]);
-        print_usage (argv[0]);
-        return JERRY_STANDALONE_EXIT_CODE_FAIL;
-      }
-
-      if (jerry_is_feature_enabled (JERRY_FEATURE_SNAPSHOT_SAVE))
-      {
-        is_save_literals_mode = true;
-        is_save_literals_mode_in_c_format_or_list = !strcmp ("--save-literals-c-format", argv[i - 1]);
-
-        if (save_literals_file_name_p != NULL)
+        if (check_feature (JERRY_FEATURE_PARSER_DUMP, cli_state.arg))
         {
-          jerry_port_log (JERRY_LOG_LEVEL_ERROR, "Error: literal file name already specified\n");
-          print_usage (argv[0]);
-          return JERRY_STANDALONE_EXIT_CODE_FAIL;
+          jerry_port_default_set_log_level (JERRY_LOG_LEVEL_DEBUG);
+          flags |= JERRY_INIT_SHOW_OPCODES;
         }
-
-        save_literals_file_name_p = argv[i];
+        break;
       }
-      else
+      case OPT_SHOW_RE_OP:
       {
-        jerry_port_default_set_log_level (JERRY_LOG_LEVEL_WARNING);
-
-        jerry_port_log (JERRY_LOG_LEVEL_WARNING,
-                        "Ignoring 'save-literals' option because this feature is disabled!\n");
+        if (check_feature (JERRY_FEATURE_REGEXP_DUMP, cli_state.arg))
+        {
+          jerry_port_default_set_log_level (JERRY_LOG_LEVEL_DEBUG);
+          flags |= JERRY_INIT_SHOW_REGEXP_OPCODES;
+        }
+        break;
       }
-    }
-    else if (!strcmp ("--log-level", argv[i]))
-    {
-      if (++i >= argc)
+      case OPT_DEBUG_SERVER:
       {
-        jerry_port_log (JERRY_LOG_LEVEL_ERROR, "Error: no level specified for %s\n", argv[i - 1]);
-        print_usage (argv[0]);
-        return JERRY_STANDALONE_EXIT_CODE_FAIL;
+        if (check_feature (JERRY_FEATURE_DEBUGGER, cli_state.arg))
+        {
+          start_debug_server = true;
+        }
+        break;
       }
-
-      if (strlen (argv[i]) != 1 || argv[i][0] < '0' || argv[i][0] > '3')
+      case OPT_DEBUG_PORT:
       {
-        jerry_port_log (JERRY_LOG_LEVEL_ERROR, "Error: wrong format for %s\n", argv[i - 1]);
-        print_usage (argv[0]);
-        return JERRY_STANDALONE_EXIT_CODE_FAIL;
+        if (check_feature (JERRY_FEATURE_DEBUGGER, cli_state.arg))
+        {
+          debug_port = (uint16_t) cli_consume_int (&cli_state);
+        }
+        break;
       }
+      case OPT_DEBUGGER_WAIT_SOURCE:
+      {
+        if (check_feature (JERRY_FEATURE_DEBUGGER, cli_state.arg))
+        {
+          is_wait_mode = true;
+        }
+        break;
+      }
+      case OPT_SAVE_SNAP_GLOBAL:
+      case OPT_SAVE_SNAP_EVAL:
+      {
+        check_usage (save_snapshot_file_name_p == NULL, argv[0], "Error: snapshot file name already specified", NULL);
+        if (check_feature (JERRY_FEATURE_SNAPSHOT_SAVE, cli_state.arg))
+        {
+          is_save_snapshot_mode = true;
+          is_save_snapshot_mode_for_global_or_eval = (id == OPT_SAVE_SNAP_GLOBAL);
+        }
+        save_snapshot_file_name_p = cli_consume_string (&cli_state);
+        break;
+      }
+      case OPT_SAVE_LIT_LIST:
+      case OPT_SAVE_LIT_C:
+      {
+        check_usage (save_literals_file_name_p == NULL, argv[0], "Error: literal file name already specified", NULL);
+        if (check_feature (JERRY_FEATURE_SNAPSHOT_SAVE, cli_state.arg))
+        {
+          is_save_literals_mode = true;
+          is_save_literals_mode_in_c_format_or_list = (id == OPT_SAVE_LIT_C);
+        }
+        save_literals_file_name_p = cli_consume_string (&cli_state);
+        break;
+      }
+      case OPT_EXEC_SNAP:
+      {
+        if (check_feature (JERRY_FEATURE_SNAPSHOT_EXEC, cli_state.arg))
+        {
+          exec_snapshot_file_names[exec_snapshots_count] = cli_consume_string (&cli_state);
+          exec_snapshot_file_indices[exec_snapshots_count++] = 0;
+        }
+        else
+        {
+          cli_consume_string (&cli_state);
+        }
+        break;
+      }
+      case OPT_EXEC_SNAP_FUNC:
+      {
+        if (check_feature (JERRY_FEATURE_SNAPSHOT_EXEC, cli_state.arg))
+        {
+          exec_snapshot_file_names[exec_snapshots_count] = cli_consume_string (&cli_state);
+          exec_snapshot_file_indices[exec_snapshots_count++] = (uint32_t) cli_consume_int (&cli_state);
+        }
+        else
+        {
+          cli_consume_string (&cli_state);
+        }
+        break;
+      }
+      case OPT_LOG_LEVEL:
+      {
+        long int log_level = cli_consume_int (&cli_state);
+        check_usage (log_level >= 0 && log_level <= 3,
+                     argv[0], "Error: invalid value for --log-level: ", cli_state.arg);
 
-      jerry_port_default_set_log_level ((jerry_log_level_t) (argv[i][0] - '0'));
+        jerry_port_default_set_log_level ((jerry_log_level_t) log_level);
+        break;
+      }
+      case OPT_ABORT_ON_FAIL:
+      {
+        jerry_port_default_set_abort_on_fail (true);
+        break;
+      }
+      case OPT_NO_PROMPT:
+      {
+        no_prompt = true;
+        break;
+      }
+      case CLI_OPT_DEFAULT:
+      {
+        file_names[files_counter++] = cli_consume_string (&cli_state);
+        break;
+      }
+      default:
+      {
+        cli_state.error = "Internal error";
+        break;
+      }
     }
-    else if (!strcmp ("--abort-on-fail", argv[i]))
+  }
+
+  if (cli_state.error != NULL)
+  {
+    if (cli_state.arg != NULL)
     {
-      jerry_port_default_set_abort_on_fail (true);
-    }
-    else if (!strcmp ("--no-prompt", argv[i]))
-    {
-      no_prompt = true;
-    }
-    else if (!strcmp ("-", argv[i]))
-    {
-      file_names[files_counter++] = argv[i];
-    }
-    else if (!strncmp ("-", argv[i], 1))
-    {
-      jerry_port_log (JERRY_LOG_LEVEL_ERROR, "Error: unrecognized option: %s\n", argv[i]);
-      print_usage (argv[0]);
-      return JERRY_STANDALONE_EXIT_CODE_FAIL;
+      jerry_port_log (JERRY_LOG_LEVEL_ERROR, "Error: %s %s\n", cli_state.error, cli_state.arg);
     }
     else
     {
-      file_names[files_counter++] = argv[i];
+      jerry_port_log (JERRY_LOG_LEVEL_ERROR, "Error: %s\n", cli_state.error);
     }
+
+    return JERRY_STANDALONE_EXIT_CODE_FAIL;
   }
 
-  if (jerry_is_feature_enabled (JERRY_FEATURE_SNAPSHOT_SAVE) && is_save_snapshot_mode)
+  if (is_save_snapshot_mode)
   {
-    if (files_counter != 1)
-    {
-      jerry_port_log (JERRY_LOG_LEVEL_ERROR,
-                      "Error: --save-snapshot argument works with exactly one script\n");
-      return JERRY_STANDALONE_EXIT_CODE_FAIL;
-    }
-
-    if (exec_snapshots_count != 0)
-    {
-      jerry_port_log (JERRY_LOG_LEVEL_ERROR,
-                      "Error: --save-snapshot and --exec-snapshot options can't be passed simultaneously\n");
-      return JERRY_STANDALONE_EXIT_CODE_FAIL;
-    }
+    check_usage (files_counter == 1,
+                 argv[0], "Error: --save-snapshot-* options work with exactly one script", NULL);
+    check_usage (exec_snapshots_count == 0,
+                 argv[0], "Error: --save-snapshot-* and --exec-snapshot options can't be passed simultaneously", NULL);
   }
 
-  if (jerry_is_feature_enabled (JERRY_FEATURE_SNAPSHOT_SAVE) && is_save_literals_mode)
+  if (is_save_literals_mode)
   {
-    if (files_counter != 1)
-    {
-      jerry_port_log (JERRY_LOG_LEVEL_ERROR,
-                      "Error: --save-literals-* options work with exactly one script\n");
-      return JERRY_STANDALONE_EXIT_CODE_FAIL;
-    }
+    check_usage (files_counter == 1,
+                argv[0], "Error: --save-literals-* options work with exactly one script", NULL);
   }
 
   if (files_counter == 0
@@ -602,34 +636,31 @@ main (int argc,
     is_repl_mode = true;
   }
 
+#ifdef JERRY_ENABLE_EXTERNAL_CONTEXT
+
+  jerry_instance_t *instance_p = jerry_create_instance (512*1024, instance_alloc, NULL);
+  jerry_port_default_set_instance (instance_p);
+
+#endif /* JERRY_ENABLE_EXTERNAL_CONTEXT */
+
   jerry_init (flags);
-
-  jerry_value_t global_obj_val = jerry_get_global_object ();
-  jerry_value_t assert_value = jerry_create_external_function (assert_handler);
-
-  jerry_value_t assert_func_name_val = jerry_create_string ((jerry_char_t *) "assert");
-  jerry_value_t ret_value = jerry_set_property (global_obj_val, assert_func_name_val, assert_value);
-
-  jerry_release_value (assert_func_name_val);
-  jerry_release_value (assert_value);
-  jerry_release_value (global_obj_val);
-
-  if (jerry_value_has_error_flag (ret_value))
+  if (start_debug_server)
   {
-    jerry_port_log (JERRY_LOG_LEVEL_WARNING, "Warning: failed to register 'assert' method.");
-    print_unhandled_exception (ret_value);
+    jerry_debugger_init (debug_port);
   }
 
-  jerry_release_value (ret_value);
+  register_js_function ("assert", jerryx_handler_assert);
+  register_js_function ("gc", jerryx_handler_gc);
+  register_js_function ("print", jerryx_handler_print);
 
-  ret_value = jerry_create_undefined ();
+  jerry_value_t ret_value = jerry_create_undefined ();
 
   if (jerry_is_feature_enabled (JERRY_FEATURE_SNAPSHOT_EXEC))
   {
     for (int i = 0; i < exec_snapshots_count; i++)
     {
       size_t snapshot_size;
-      const uint8_t *snapshot_p = read_file (exec_snapshot_file_names[i], &snapshot_size);
+      const uint32_t *snapshot_p = read_file (exec_snapshot_file_names[i], &snapshot_size);
 
       if (snapshot_p == NULL)
       {
@@ -637,9 +668,10 @@ main (int argc,
       }
       else
       {
-        ret_value = jerry_exec_snapshot ((void *) snapshot_p,
-                                         snapshot_size,
-                                         true);
+        ret_value = jerry_exec_snapshot_at (snapshot_p,
+                                            snapshot_size,
+                                            exec_snapshot_file_indices[i],
+                                            true);
       }
 
       if (jerry_value_has_error_flag (ret_value))
@@ -654,7 +686,7 @@ main (int argc,
     for (int i = 0; i < files_counter; i++)
     {
       size_t source_size;
-      const jerry_char_t *source_p = read_file (file_names[i], &source_size);
+      const jerry_char_t *source_p = (jerry_char_t *) read_file (file_names[i], &source_size);
 
       if (source_p == NULL)
       {
@@ -668,9 +700,9 @@ main (int argc,
         break;
       }
 
-      if (jerry_is_feature_enabled (JERRY_FEATURE_SNAPSHOT_SAVE) && (is_save_snapshot_mode || is_save_literals_mode))
+      if (is_save_snapshot_mode || is_save_literals_mode)
       {
-        static uint8_t snapshot_save_buffer[ JERRY_BUFFER_SIZE ];
+        static uint32_t snapshot_save_buffer[ JERRY_SNAPSHOT_BUFFER_SIZE ];
 
         if (is_save_snapshot_mode)
         {
@@ -679,7 +711,7 @@ main (int argc,
                                                                 is_save_snapshot_mode_for_global_or_eval,
                                                                 false,
                                                                 snapshot_save_buffer,
-                                                                JERRY_BUFFER_SIZE);
+                                                                JERRY_SNAPSHOT_BUFFER_SIZE);
           if (snapshot_size == 0)
           {
             ret_value = jerry_create_error (JERRY_ERROR_COMMON, (jerry_char_t *) "Snapshot saving failed!");
@@ -698,7 +730,7 @@ main (int argc,
                                                                             source_size,
                                                                             false,
                                                                             snapshot_save_buffer,
-                                                                            JERRY_BUFFER_SIZE,
+                                                                            JERRY_SNAPSHOT_BUFFER_SIZE,
                                                                             is_save_literals_mode_in_c_format_or_list);
           if (literal_buffer_size == 0)
           {
@@ -738,33 +770,69 @@ main (int argc,
     }
   }
 
+  if (is_wait_mode)
+  {
+    is_repl_mode = false;
+#ifdef JERRY_DEBUGGER
+
+    while (true)
+    {
+      jerry_debugger_wait_for_source_status_t receive_status;
+
+      do
+      {
+        jerry_value_t run_result;
+
+        receive_status = jerry_debugger_wait_for_client_source (wait_for_source_callback,
+                                                                NULL,
+                                                                &run_result);
+
+        if (receive_status == JERRY_DEBUGGER_SOURCE_RECEIVE_FAILED)
+        {
+          ret_value = jerry_create_error (JERRY_ERROR_COMMON,
+                                          (jerry_char_t *) "Connection aborted before source arrived.");
+        }
+
+        if (receive_status == JERRY_DEBUGGER_SOURCE_END)
+        {
+          jerry_port_log (JERRY_LOG_LEVEL_DEBUG, "No more client source.\n");
+        }
+
+        jerry_release_value (run_result);
+      }
+      while (receive_status == JERRY_DEBUGGER_SOURCE_RECEIVED);
+
+      if (receive_status != JERRY_DEBUGGER_CONTEXT_RESET_RECEIVED)
+      {
+        break;
+      }
+
+      jerry_cleanup ();
+
+      jerry_init (flags);
+      jerry_debugger_init (debug_port);
+
+      register_js_function ("assert", jerryx_handler_assert);
+      register_js_function ("gc", jerryx_handler_gc);
+      register_js_function ("print", jerryx_handler_print);
+
+      ret_value = jerry_create_undefined ();
+    }
+
+#endif /* JERRY_DEBUGGER */
+  }
+
   if (is_repl_mode)
   {
     const char *prompt = !no_prompt ? "jerry> " : "";
     bool is_done = false;
-
-    jerry_value_t global_object_val = jerry_get_global_object ();
-    jerry_value_t print_func_name_val = jerry_create_string ((jerry_char_t *) "print");
-    jerry_value_t print_function = jerry_get_property (global_object_val, print_func_name_val);
-
-    jerry_release_value (print_func_name_val);
-
-    if (jerry_value_has_error_flag (print_function))
-    {
-      return JERRY_STANDALONE_EXIT_CODE_FAIL;
-    }
-
-    if (!jerry_value_is_function (print_function))
-    {
-      return JERRY_STANDALONE_EXIT_CODE_FAIL;
-    }
 
     while (!is_done)
     {
       uint8_t *source_buffer_tail = buffer;
       size_t len = 0;
 
-      jerry_port_console ("%s", prompt);
+      printf ("%s", prompt);
 
       /* Read a line */
       while (true)
@@ -792,36 +860,57 @@ main (int argc,
         {
           /* Print return value */
           const jerry_value_t args[] = { ret_val_eval };
-          jerry_value_t ret_val_print = jerry_call_function (print_function,
-                                                             jerry_create_undefined (),
-                                                             args,
-                                                             1);
+          jerry_value_t ret_val_print = jerryx_handler_print (jerry_create_undefined (),
+                                                              jerry_create_undefined (),
+                                                              args,
+                                                              1);
           jerry_release_value (ret_val_print);
+          jerry_release_value (ret_val_eval);
+          ret_val_eval = jerry_run_all_enqueued_jobs ();
+
+          if (jerry_value_has_error_flag (ret_val_eval))
+          {
+            jerry_value_clear_error_flag (&ret_val_eval);
+            print_unhandled_exception (ret_val_eval);
+          }
         }
         else
         {
+          jerry_value_clear_error_flag (&ret_val_eval);
           print_unhandled_exception (ret_val_eval);
         }
 
         jerry_release_value (ret_val_eval);
       }
     }
-
-    jerry_release_value (global_object_val);
-    jerry_release_value (print_function);
   }
 
   int ret_code = JERRY_STANDALONE_EXIT_CODE_OK;
 
   if (jerry_value_has_error_flag (ret_value))
   {
+    jerry_value_clear_error_flag (&ret_value);
     print_unhandled_exception (ret_value);
 
     ret_code = JERRY_STANDALONE_EXIT_CODE_FAIL;
   }
 
   jerry_release_value (ret_value);
-  jerry_cleanup ();
 
+  ret_value = jerry_run_all_enqueued_jobs ();
+
+  if (jerry_value_has_error_flag (ret_value))
+  {
+    jerry_value_clear_error_flag (&ret_value);
+    print_unhandled_exception (ret_value);
+    ret_code = JERRY_STANDALONE_EXIT_CODE_FAIL;
+  }
+
+  jerry_release_value (ret_value);
+
+  jerry_cleanup ();
+#ifdef JERRY_ENABLE_EXTERNAL_CONTEXT
+  free (instance_p);
+#endif /* JERRY_ENABLE_EXTERNAL_CONTEXT */
   return ret_code;
 } /* main */

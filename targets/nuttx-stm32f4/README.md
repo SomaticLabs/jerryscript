@@ -56,7 +56,6 @@ We must set the following options:
 
 * Change `Build Setup -> Build Host Platform` from _Windows_ to _Linux_
 * Enable `System Type -> FPU support`
-* Enable `Library Routines -> Standard Math library`
 * Enable `Application Configuration -> Interpreters -> JerryScript`
 
 If you get `kconfig-mconf: not found` error when you run `make menuconfig` you may have to install kconfig-frontends:
@@ -85,12 +84,12 @@ make
 
 Connect Mini-USB for power supply and connect Micro-USB for `NSH` console.
 
-To configure `stlink` utility for flashing, follow the instructions [here](https://github.com/texane/stlink#build-from-sources).
+To configure `stlink` utility for flashing, follow the instructions in the official [Stlink repository](https://github.com/texane/stlink).
 
 To flash,
 ```
 # assuming you are in nuttx folder
-sudo ../stlink/build/st-flash write nuttx.bin 0x8000000
+sudo ../stlink/build/Release/st-flash write nuttx.bin 0x8000000
 ```
 
 ### Running JerryScript

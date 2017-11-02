@@ -16,13 +16,10 @@
 /*
  * Date.prototype built-in description
  */
-#ifndef OBJECT_VALUE
-# define OBJECT_VALUE(name, obj_builtin_id, prop_attributes)
-#endif /* !OBJECT_VALUE */
 
-#ifndef ROUTINE
-# define ROUTINE(name, c_function_name, args_number, length_prop_value)
-#endif /* !ROUTINE */
+#include "ecma-builtin-helpers-macro-defines.inc.h"
+
+#ifndef CONFIG_DISABLE_DATE_BUILTIN
 
 OBJECT_VALUE (LIT_MAGIC_STRING_CONSTRUCTOR,
               ECMA_BUILTIN_ID_DATE,
@@ -80,10 +77,6 @@ ROUTINE (LIT_MAGIC_STRING_TO_GMT_STRING_UL, ECMA_DATE_PROTOTYPE_TO_UTC_STRING, 0
 
 #endif /* !CONFIG_DISABLE_ANNEXB_BUILTIN */
 
-#undef SIMPLE_VALUE
-#undef NUMBER_VALUE
-#undef STRING_VALUE
-#undef OBJECT_VALUE
-#undef ROUTINE
-#undef ACCESSOR_READ_WRITE
-#undef ACCESSOR_READ_ONLY
+#endif /* !CONFIG_DISABLE_DATE_BUILTIN */
+
+#include "ecma-builtin-helpers-macro-undefs.inc.h"

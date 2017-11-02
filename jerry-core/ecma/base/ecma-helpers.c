@@ -19,13 +19,15 @@
 #include "ecma-helpers.h"
 #include "ecma-lcache.h"
 #include "ecma-property-hashmap.h"
-#ifdef JERRY_DEBUGGER
-#include "jcontext.h"
-#include "jerry-debugger.h"
-#endif /* JERRY_DEBUGGER */
 #include "jrt-bit-fields.h"
 #include "byte-code.h"
 #include "re-compiler.h"
+#include "ecma-builtins.h"
+
+#ifdef JERRY_DEBUGGER
+#include "debugger.h"
+#include "jcontext.h"
+#endif /* JERRY_DEBUGGER */
 
 /** \addtogroup ecma ECMA
  * @{
@@ -43,7 +45,7 @@ JERRY_STATIC_ASSERT (ECMA_PROPERTY_TYPE_MASK >= ECMA_PROPERTY_TYPE__MAX,
 /**
  * The ecma object types must be lower than the container mask.
  */
-JERRY_STATIC_ASSERT (ECMA_OBJECT_TYPE_MASK >= ECMA_OBJECT_TYPE__MAX,
+JERRY_STATIC_ASSERT (ECMA_OBJECT_TYPE_MASK >= ECMA_OBJECT_TYPE__MAX - 1,
                      ecma_object_types_must_be_lower_than_the_container_mask);
 
 /**
@@ -59,16 +61,10 @@ JERRY_STATIC_ASSERT (ECMA_OBJECT_TYPE_MASK + 1 == ECMA_OBJECT_FLAG_BUILT_IN_OR_L
                      ecma_built_in_flag_must_follow_the_object_type);
 
 /**
- * The ecma gc visited flag must follow the built in flag.
- */
-JERRY_STATIC_ASSERT (ECMA_OBJECT_FLAG_GC_VISITED == (ECMA_OBJECT_FLAG_BUILT_IN_OR_LEXICAL_ENV << 1),
-                     ecma_gc_visited_flag_must_follow_the_built_in_flag);
-
-/**
  * The ecma extensible flag must follow the gc visited flag.
  */
-JERRY_STATIC_ASSERT (ECMA_OBJECT_FLAG_EXTENSIBLE == (ECMA_OBJECT_FLAG_GC_VISITED << 1),
-                     ecma_extensible_flag_must_follow_the_gc_visited_flag);
+JERRY_STATIC_ASSERT (ECMA_OBJECT_FLAG_EXTENSIBLE == (ECMA_OBJECT_FLAG_BUILT_IN_OR_LEXICAL_ENV << 1),
+                     ecma_extensible_flag_must_follow_the_built_in_flag);
 
 /**
  * The ecma object ref one must follow the extensible flag.
@@ -249,19 +245,6 @@ ecma_get_object_type (const ecma_object_t *object_p) /**< object */
 } /* ecma_get_object_type */
 
 /**
- * Set object's internal implementation-defined type.
- */
-inline void
-ecma_set_object_type (ecma_object_t *object_p, /**< object */
-                      ecma_object_type_t type) /**< type */
-{
-  JERRY_ASSERT (object_p != NULL);
-  JERRY_ASSERT (!(object_p->type_flags_refs & ECMA_OBJECT_FLAG_BUILT_IN_OR_LEXICAL_ENV));
-
-  object_p->type_flags_refs = (uint16_t) ((object_p->type_flags_refs & ~ECMA_OBJECT_TYPE_MASK) | type);
-} /* ecma_set_object_type */
-
-/**
  * Get object's prototype.
  */
 inline ecma_object_t *__attr_pure___
@@ -300,6 +283,33 @@ ecma_set_object_is_builtin (ecma_object_t *object_p) /**< object */
 
   object_p->type_flags_refs = (uint16_t) (object_p->type_flags_refs | ECMA_OBJECT_FLAG_BUILT_IN_OR_LEXICAL_ENV);
 } /* ecma_set_object_is_builtin */
+
+/**
+ * Get the builtin id of the object.
+ * If the object is not builtin, return ECMA_BUILTIN_ID__COUNT
+ */
+inline uint8_t
+ecma_get_object_builtin_id (ecma_object_t *object_p) /**< object */
+{
+  if (!ecma_get_object_is_builtin (object_p))
+  {
+    return ECMA_BUILTIN_ID__COUNT;
+  }
+
+  ecma_built_in_props_t *built_in_props_p;
+  ecma_object_type_t object_type = ecma_get_object_type (object_p);
+
+  if (object_type == ECMA_OBJECT_TYPE_CLASS || object_type == ECMA_OBJECT_TYPE_ARRAY)
+  {
+    built_in_props_p = &((ecma_extended_built_in_object_t *) object_p)->built_in;
+  }
+  else
+  {
+    built_in_props_p = &((ecma_extended_object_t *) object_p)->u.built_in;
+  }
+
+  return built_in_props_p->id;
+} /* ecma_get_object_builtin_id */
 
 /**
  * Get type of lexical environment.
@@ -716,9 +726,9 @@ ecma_free_property (ecma_object_t *object_p, /**< object the property belongs to
       if (ECMA_PROPERTY_GET_NAME_TYPE (*property_p) == ECMA_STRING_CONTAINER_MAGIC_STRING)
       {
         if (name_cp == LIT_INTERNAL_MAGIC_STRING_NATIVE_HANDLE
-            || name_cp == LIT_INTERNAL_MAGIC_STRING_FREE_CALLBACK)
+            || name_cp == LIT_INTERNAL_MAGIC_STRING_NATIVE_POINTER)
         {
-          ecma_free_external_pointer_in_property (property_p);
+          ecma_free_native_pointer (property_p);
           break;
         }
       }
@@ -805,6 +815,11 @@ ecma_delete_property (ecma_object_t *object_p, /**< object */
         if (cur_prop_p->types[1 - i] != ECMA_PROPERTY_TYPE_DELETED)
         {
           /* The other property is still valid. */
+          if (hashmap_status == ECMA_PROPERTY_HASHMAP_DELETE_RECREATE_HASHMAP)
+          {
+            ecma_property_hashmap_free (object_p);
+            ecma_property_hashmap_create (object_p);
+          }
           return;
         }
 
@@ -1117,7 +1132,7 @@ ecma_set_named_accessor_property_setter (ecma_object_t *object_p, /**< the prope
  * Get property's 'Writable' attribute value
  *
  * @return true - property is writable,
- *         false - otherwise.
+ *         false - otherwise
  */
 inline bool __attr_always_inline___
 ecma_is_property_writable (ecma_property_t property) /**< property */
@@ -1151,7 +1166,7 @@ ecma_set_property_writable_attr (ecma_property_t *property_p, /**< [in,out] prop
  * Get property's 'Enumerable' attribute value
  *
  * @return true - property is enumerable,
- *         false - otherwise.
+ *         false - otherwise
  */
 inline bool __attr_always_inline___
 ecma_is_property_enumerable (ecma_property_t property) /**< property */
@@ -1187,7 +1202,7 @@ ecma_set_property_enumerable_attr (ecma_property_t *property_p, /**< [in,out] pr
  * Get property's 'Configurable' attribute value
  *
  * @return true - property is configurable,
- *         false - otherwise.
+ *         false - otherwise
  */
 inline bool __attr_always_inline___
 ecma_is_property_configurable (ecma_property_t property) /**< property */
@@ -1306,6 +1321,103 @@ ecma_free_property_descriptor (ecma_property_descriptor_t *prop_desc_p) /**< pro
 } /* ecma_free_property_descriptor */
 
 /**
+ * The size of error reference must be 8 bytes to use jmem_pools_alloc().
+ */
+JERRY_STATIC_ASSERT (sizeof (ecma_error_reference_t) == 8,
+                     ecma_error_reference_size_must_be_8_bytes);
+
+/**
+ * Create an error reference from a given value.
+ *
+ * Note:
+ *   Reference of the value is taken.
+ *
+ * @return error reference value
+ */
+ecma_value_t
+ecma_create_error_reference (ecma_value_t value) /**< referenced value */
+{
+  ecma_error_reference_t *error_ref_p = (ecma_error_reference_t *) jmem_pools_alloc (sizeof (ecma_error_reference_t));
+
+  error_ref_p->refs = 1;
+  error_ref_p->value = value;
+  return ecma_make_error_reference_value (error_ref_p);
+} /* ecma_create_error_reference */
+
+/**
+ * Create an error reference from a given object.
+ *
+ * Note:
+ *   Reference of the value is taken.
+ *
+ * @return error reference value
+ */
+inline ecma_value_t __attr_always_inline___
+ecma_create_error_object_reference (ecma_object_t *object_p) /**< referenced object */
+{
+  return ecma_create_error_reference (ecma_make_object_value (object_p));
+} /* ecma_create_error_object_reference */
+
+/**
+ * Increase ref count of an error reference.
+ */
+void
+ecma_ref_error_reference (ecma_error_reference_t *error_ref_p) /**< error reference */
+{
+  if (likely (error_ref_p->refs < UINT32_MAX))
+  {
+    error_ref_p->refs++;
+  }
+  else
+  {
+    jerry_fatal (ERR_REF_COUNT_LIMIT);
+  }
+} /* ecma_ref_error_reference */
+
+/**
+ * Decrease ref count of an error reference.
+ */
+void
+ecma_deref_error_reference (ecma_error_reference_t *error_ref_p) /**< error reference */
+{
+  JERRY_ASSERT (error_ref_p->refs > 0);
+
+  error_ref_p->refs--;
+
+  if (error_ref_p->refs == 0)
+  {
+    ecma_free_value (error_ref_p->value);
+    jmem_pools_free (error_ref_p, sizeof (ecma_error_reference_t));
+  }
+} /* ecma_deref_error_reference */
+
+/**
+ * Clears error reference, and returns with the value.
+ *
+ * @return value referenced by the error
+ */
+ecma_value_t
+ecma_clear_error_reference (ecma_value_t value)
+{
+  ecma_error_reference_t *error_ref_p = ecma_get_error_reference_from_value (value);
+
+  JERRY_ASSERT (error_ref_p->refs > 0);
+
+  ecma_value_t referenced_value = error_ref_p->value;
+
+  if (error_ref_p->refs > 1)
+  {
+    error_ref_p->refs--;
+  }
+  else
+  {
+    jmem_pools_free (error_ref_p, sizeof (ecma_error_reference_t));
+  }
+
+  return referenced_value;
+} /* ecma_clear_error_reference */
+
+/**
  * Increase reference counter of Compact
  * Byte Code or regexp byte code.
  */
@@ -1377,35 +1489,42 @@ ecma_bytecode_deref (ecma_compiled_code_t *bytecode_p) /**< byte code pointer */
     }
 
 #ifdef JERRY_DEBUGGER
-    if (JERRY_CONTEXT (debugger_flags) & JERRY_DEBUGGER_CONNECTED)
+    if ((JERRY_CONTEXT (debugger_flags) & JERRY_DEBUGGER_CONNECTED)
+        && !(bytecode_p->status_flags & CBC_CODE_FLAGS_DEBUGGER_IGNORE)
+        && jerry_debugger_send_function_cp (JERRY_DEBUGGER_RELEASE_BYTE_CODE_CP, bytecode_p))
     {
-      if (jerry_debugger_send_function_cp (JERRY_DEBUGGER_RELEASE_BYTE_CODE_CP, bytecode_p))
+      /* Delay the byte code free until the debugger client is notified.
+       * If the connection is aborted the pointer is still freed by
+       * jerry_debugger_close_connection(). */
+      jerry_debugger_byte_code_free_t *byte_code_free_p = (jerry_debugger_byte_code_free_t *) bytecode_p;
+      jmem_cpointer_t byte_code_free_head = JERRY_CONTEXT (debugger_byte_code_free_head);
+
+      byte_code_free_p->prev_cp = ECMA_NULL_POINTER;
+
+      jmem_cpointer_t byte_code_free_cp;
+      JMEM_CP_SET_NON_NULL_POINTER (byte_code_free_cp, byte_code_free_p);
+
+      if (byte_code_free_head == ECMA_NULL_POINTER)
       {
-        /* Delay the byte code free until the debugger client is notified.
-         * If the connection is aborted the pointer is still freed by
-         * jerry_debugger_close_connection(). */
-        jerry_debugger_byte_code_free_t *byte_code_free_p = (jerry_debugger_byte_code_free_t *) bytecode_p;
-        jmem_cpointer_t byte_code_free_head = JERRY_CONTEXT (debugger_byte_code_free_head);
-
-        byte_code_free_p->prev_cp = ECMA_NULL_POINTER;
-        byte_code_free_p->next_cp = byte_code_free_head;
-
-        JMEM_CP_SET_NON_NULL_POINTER (JERRY_CONTEXT (debugger_byte_code_free_head),
-                                      byte_code_free_p);
-
-        if (byte_code_free_head != ECMA_NULL_POINTER)
-        {
-          jerry_debugger_byte_code_free_t *next_byte_code_free_p;
-
-          next_byte_code_free_p = JMEM_CP_GET_NON_NULL_POINTER (jerry_debugger_byte_code_free_t,
-                                                                byte_code_free_head);
-
-          next_byte_code_free_p->prev_cp = JERRY_CONTEXT (debugger_byte_code_free_head);
-        }
-        return;
+        JERRY_CONTEXT (debugger_byte_code_free_tail) = byte_code_free_cp;
       }
+      else
+      {
+        jerry_debugger_byte_code_free_t *first_byte_code_free_p;
+
+        first_byte_code_free_p = JMEM_CP_GET_NON_NULL_POINTER (jerry_debugger_byte_code_free_t,
+                                                               byte_code_free_head);
+        first_byte_code_free_p->prev_cp = byte_code_free_cp;
+      }
+
+      JERRY_CONTEXT (debugger_byte_code_free_head) = byte_code_free_cp;
+      return;
     }
 #endif /* JERRY_DEBUGGER */
+
+#ifdef JMEM_STATS
+    jmem_stats_free_byte_code_bytes (((size_t) bytecode_p->size) << JMEM_ALIGNMENT_LOG);
+#endif /* JMEM_STATS */
   }
   else
   {

@@ -15,9 +15,14 @@
 # limitations under the License.
 
 # Usage:
-#       ./tools/runners/run-test-suite.sh ENGINE TESTS [--snapshot] ENGINE_ARGS....
+#       ./tools/runners/run-test-suite.sh ENGINE TESTS [--skip-list=item1,item2] [--snapshot] ENGINE_ARGS....
 
 TIMEOUT=${TIMEOUT:=5}
+TIMEOUT_CMD=`which timeout`
+if [ $? -ne 0 ]
+then
+    TIMEOUT_CMD=`which gtimeout`
+fi
 
 ENGINE="$1"
 shift
@@ -31,6 +36,13 @@ TESTS_BASENAME=`basename $TESTS`
 TEST_FILES=$OUTPUT_DIR/$TESTS_BASENAME.files
 TEST_FAILED=$OUTPUT_DIR/$TESTS_BASENAME.failed
 TEST_PASSED=$OUTPUT_DIR/$TESTS_BASENAME.passed
+
+if [[ "$1" =~ ^--skip-list=.* ]]
+then
+    SKIP_LIST=${1#--skip-list=}
+    SKIP_LIST=(${SKIP_LIST//,/ })
+    shift
+fi
 
 if [ "$1" == "--snapshot" ]
 then
@@ -64,8 +76,14 @@ else
     exit 1
 fi
 
-total=$(cat $TEST_FILES | wc -l)
-if [ "$total" -eq 0 ]
+# Remove the skipped tests from list
+for TEST in "${SKIP_LIST[@]}"
+do
+    ( sed -i -r "/$TEST/d" $TEST_FILES )
+done
+
+TOTAL=$(cat $TEST_FILES | wc -l)
+if [ "$TOTAL" -eq 0 ]
 then
     echo "$0: $TESTS: no test in test suite"
     exit 1
@@ -100,13 +118,13 @@ ENGINE_TEMP=`mktemp engine-out.XXXXXXXXXX`
 
 for test in `cat $TEST_FILES`
 do
-    error_code=`echo $test | grep -e "^.\/fail\/[0-9]*\/" -o | cut -d / -f 3`
-    if [ "$error_code" = "" ]
+    if [[ $test =~ ^\.\/fail\/ ]]
     then
-        PASS="PASS"
-        error_code=0
-    else
+        error_code=1
         PASS="PASS (XFAIL)"
+    else
+        error_code=0
+        PASS="PASS"
     fi
 
     full_test=$TESTS_DIR/${test#./}
@@ -117,28 +135,28 @@ do
         SNAPSHOT_TEMP=`mktemp $(basename -s .js $test).snapshot.XXXXXXXXXX`
 
         cmd_line="${ENGINE#$ROOT_DIR} $ENGINE_ARGS --save-snapshot-for-global $SNAPSHOT_TEMP ${full_test#$ROOT_DIR}"
-        ( ulimit -t $TIMEOUT; $ENGINE $ENGINE_ARGS --save-snapshot-for-global $SNAPSHOT_TEMP $full_test &> $ENGINE_TEMP )
+        $TIMEOUT_CMD $TIMEOUT $ENGINE $ENGINE_ARGS --save-snapshot-for-global $SNAPSHOT_TEMP $full_test &> $ENGINE_TEMP
         status_code=$?
 
         if [ $status_code -eq 0 ]
         then
-            echo "[$tested/$total] $cmd_line: PASS"
+            echo "[$tested/$TOTAL] $cmd_line: PASS"
 
             cmd_line="${ENGINE#$ROOT_DIR} $ENGINE_ARGS --exec-snapshot $SNAPSHOT_TEMP"
-            ( ulimit -t $TIMEOUT; $ENGINE $ENGINE_ARGS --exec-snapshot $SNAPSHOT_TEMP &> $ENGINE_TEMP )
+            $TIMEOUT_CMD $TIMEOUT $ENGINE $ENGINE_ARGS --exec-snapshot $SNAPSHOT_TEMP &> $ENGINE_TEMP
             status_code=$?
         fi
 
         rm -f $SNAPSHOT_TEMP
     else
         cmd_line="${ENGINE#$ROOT_DIR} $ENGINE_ARGS ${full_test#$ROOT_DIR}"
-        ( ulimit -t $TIMEOUT; $ENGINE $ENGINE_ARGS $full_test &> $ENGINE_TEMP )
+        $TIMEOUT_CMD $TIMEOUT $ENGINE $ENGINE_ARGS $full_test &> $ENGINE_TEMP
         status_code=$?
     fi
 
     if [ $status_code -ne $error_code ]
     then
-        echo "[$tested/$total] $cmd_line: FAIL ($status_code)"
+        echo "[$tested/$TOTAL] $cmd_line: FAIL ($status_code)"
         cat $ENGINE_TEMP
 
         echo "$status_code: $test" >> $TEST_FAILED
@@ -150,7 +168,7 @@ do
 
         failed=$((failed+1))
     else
-        echo "[$tested/$total] $cmd_line: $PASS"
+        echo "[$tested/$TOTAL] $cmd_line: $PASS"
 
         echo "$test" >> $TEST_PASSED
 
@@ -162,14 +180,14 @@ done
 
 rm -f $ENGINE_TEMP
 
-ratio=$(echo $passed*100/$total | bc)
+ratio=$(echo $passed*100/$TOTAL | bc)
 
 if [ "$IS_SNAPSHOT" == true ]
 then
     ENGINE_ARGS="--snapshot $ENGINE_ARGS"
 fi
 
-echo "[summary] ${ENGINE#$ROOT_DIR} $ENGINE_ARGS ${TESTS#$ROOT_DIR}: $passed PASS, $failed FAIL, $total total, $ratio% success"
+echo "[summary] ${ENGINE#$ROOT_DIR} $ENGINE_ARGS ${TESTS#$ROOT_DIR}: $passed PASS, $failed FAIL, $TOTAL total, $ratio% success"
 
 if [ $failed -ne 0 ]
 then
