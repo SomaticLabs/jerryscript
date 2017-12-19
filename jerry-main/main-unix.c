@@ -109,14 +109,6 @@ jerry_value_is_syntax_error (jerry_value_t error_value) /**< error value */
   }
 
   jerry_size_t err_str_size = jerry_get_string_size (error_name);
-  const char syntax_error_str[] = "SyntaxError";
-
-  if (err_str_size != strlen (syntax_error_str) - 1)
-  {
-    jerry_release_value (error_name);
-    return false;
-  }
-
   jerry_char_t err_str_buf[err_str_size];
 
   jerry_size_t sz = jerry_string_to_char_buffer (error_name, err_str_buf, err_str_size);
@@ -127,7 +119,7 @@ jerry_value_is_syntax_error (jerry_value_t error_value) /**< error value */
     return false;
   }
 
-  if (!strncmp ((char *) err_str_buf, syntax_error_str, sizeof (syntax_error_str) - 1))
+  if (!strcmp ((char *) err_str_buf, "SyntaxError"))
   {
     return true;
   }
@@ -322,6 +314,10 @@ typedef enum
   OPT_DEBUG_SERVER,
   OPT_DEBUG_PORT,
   OPT_DEBUGGER_WAIT_SOURCE,
+  OPT_SAVE_SNAP_GLOBAL,
+  OPT_SAVE_SNAP_EVAL,
+  OPT_SAVE_LIT_LIST,
+  OPT_SAVE_LIT_C,
   OPT_EXEC_SNAP,
   OPT_EXEC_SNAP_FUNC,
   OPT_LOG_LEVEL,
@@ -352,6 +348,14 @@ static const cli_opt_t main_opts[] =
                .help = "debug server port (default: 5001)"),
   CLI_OPT_DEF (.id = OPT_DEBUGGER_WAIT_SOURCE, .longopt = "debugger-wait-source",
                .help = "wait for an executable source from the client"),
+  CLI_OPT_DEF (.id = OPT_SAVE_SNAP_GLOBAL, .longopt = "save-snapshot-for-global", .meta = "FILE",
+               .help = "save binary snapshot of parsed JS input (for execution in global context)"),
+  CLI_OPT_DEF (.id = OPT_SAVE_SNAP_EVAL, .longopt = "save-snapshot-for-eval", .meta = "FILE",
+               .help = "save binary snapshot of parsed JS input (for execution in local context by eval)"),
+  CLI_OPT_DEF (.id = OPT_SAVE_LIT_LIST, .longopt = "save-literals-list-format", .meta = "FILE",
+               .help = "export literals found in parsed JS input (in list format)"),
+  CLI_OPT_DEF (.id = OPT_SAVE_LIT_C, .longopt = "save-literals-c-format", .meta = "FILE",
+               .help = "export literals found in parsed JS input (in C source format)"),
   CLI_OPT_DEF (.id = OPT_EXEC_SNAP, .longopt = "exec-snapshot", .meta = "FILE",
                .help = "execute input snapshot file(s)"),
   CLI_OPT_DEF (.id = OPT_EXEC_SNAP_FUNC, .longopt = "exec-snapshot-func", .meta = "FILE NUM",
@@ -420,7 +424,6 @@ int
 main (int argc,
       char **argv)
 {
-  srand ((unsigned) jerry_port_get_current_time ());
   const char *file_names[argc];
   int files_counter = 0;
 
@@ -431,6 +434,13 @@ main (int argc,
   int exec_snapshots_count = 0;
 
   bool is_parse_only = false;
+  bool is_save_snapshot_mode = false;
+  bool is_save_snapshot_mode_for_global_or_eval = false;
+  const char *save_snapshot_file_name_p = NULL;
+
+  bool is_save_literals_mode = false;
+  bool is_save_literals_mode_in_c_format_or_list = false;
+  const char *save_literals_file_name_p = NULL;
 
   bool start_debug_server = false;
   uint16_t debug_port = 5001;
@@ -510,6 +520,30 @@ main (int argc,
         }
         break;
       }
+      case OPT_SAVE_SNAP_GLOBAL:
+      case OPT_SAVE_SNAP_EVAL:
+      {
+        check_usage (save_snapshot_file_name_p == NULL, argv[0], "Error: snapshot file name already specified", NULL);
+        if (check_feature (JERRY_FEATURE_SNAPSHOT_SAVE, cli_state.arg))
+        {
+          is_save_snapshot_mode = true;
+          is_save_snapshot_mode_for_global_or_eval = (id == OPT_SAVE_SNAP_GLOBAL);
+        }
+        save_snapshot_file_name_p = cli_consume_string (&cli_state);
+        break;
+      }
+      case OPT_SAVE_LIT_LIST:
+      case OPT_SAVE_LIT_C:
+      {
+        check_usage (save_literals_file_name_p == NULL, argv[0], "Error: literal file name already specified", NULL);
+        if (check_feature (JERRY_FEATURE_SNAPSHOT_SAVE, cli_state.arg))
+        {
+          is_save_literals_mode = true;
+          is_save_literals_mode_in_c_format_or_list = (id == OPT_SAVE_LIT_C);
+        }
+        save_literals_file_name_p = cli_consume_string (&cli_state);
+        break;
+      }
       case OPT_EXEC_SNAP:
       {
         if (check_feature (JERRY_FEATURE_SNAPSHOT_EXEC, cli_state.arg))
@@ -582,6 +616,20 @@ main (int argc,
     return JERRY_STANDALONE_EXIT_CODE_FAIL;
   }
 
+  if (is_save_snapshot_mode)
+  {
+    check_usage (files_counter == 1,
+                 argv[0], "Error: --save-snapshot-* options work with exactly one script", NULL);
+    check_usage (exec_snapshots_count == 0,
+                 argv[0], "Error: --save-snapshot-* and --exec-snapshot options can't be passed simultaneously", NULL);
+  }
+
+  if (is_save_literals_mode)
+  {
+    check_usage (files_counter == 1,
+                argv[0], "Error: --save-literals-* options work with exactly one script", NULL);
+  }
+
   if (files_counter == 0
       && exec_snapshots_count == 0)
   {
@@ -652,17 +700,64 @@ main (int argc,
         break;
       }
 
-      ret_value = jerry_parse_named_resource ((jerry_char_t *) file_names[i],
-                                              strlen (file_names[i]),
-                                              source_p,
-                                              source_size,
-                                              false);
-
-      if (!jerry_value_has_error_flag (ret_value) && !is_parse_only)
+      if (is_save_snapshot_mode || is_save_literals_mode)
       {
-        jerry_value_t func_val = ret_value;
-        ret_value = jerry_run (func_val);
-        jerry_release_value (func_val);
+        static uint32_t snapshot_save_buffer[ JERRY_SNAPSHOT_BUFFER_SIZE ];
+
+        if (is_save_snapshot_mode)
+        {
+          size_t snapshot_size = jerry_parse_and_save_snapshot ((jerry_char_t *) source_p,
+                                                                source_size,
+                                                                is_save_snapshot_mode_for_global_or_eval,
+                                                                false,
+                                                                snapshot_save_buffer,
+                                                                JERRY_SNAPSHOT_BUFFER_SIZE);
+          if (snapshot_size == 0)
+          {
+            ret_value = jerry_create_error (JERRY_ERROR_COMMON, (jerry_char_t *) "Snapshot saving failed!");
+          }
+          else
+          {
+            FILE *snapshot_file_p = fopen (save_snapshot_file_name_p, "w");
+            fwrite (snapshot_save_buffer, sizeof (uint8_t), snapshot_size, snapshot_file_p);
+            fclose (snapshot_file_p);
+          }
+        }
+
+        if (!jerry_value_has_error_flag (ret_value) && is_save_literals_mode)
+        {
+          const size_t literal_buffer_size = jerry_parse_and_save_literals ((jerry_char_t *) source_p,
+                                                                            source_size,
+                                                                            false,
+                                                                            snapshot_save_buffer,
+                                                                            JERRY_SNAPSHOT_BUFFER_SIZE,
+                                                                            is_save_literals_mode_in_c_format_or_list);
+          if (literal_buffer_size == 0)
+          {
+            ret_value = jerry_create_error (JERRY_ERROR_COMMON, (jerry_char_t *) "Literal saving failed!");
+          }
+          else
+          {
+            FILE *literal_file_p = fopen (save_literals_file_name_p, "w");
+            fwrite (snapshot_save_buffer, sizeof (uint8_t), literal_buffer_size, literal_file_p);
+            fclose (literal_file_p);
+          }
+        }
+      }
+      else
+      {
+        ret_value = jerry_parse_named_resource ((jerry_char_t *) file_names[i],
+                                                strlen (file_names[i]),
+                                                source_p,
+                                                source_size,
+                                                false);
+
+        if (!jerry_value_has_error_flag (ret_value) && !is_parse_only)
+        {
+          jerry_value_t func_val = ret_value;
+          ret_value = jerry_run (func_val);
+          jerry_release_value (func_val);
+        }
       }
 
       if (jerry_value_has_error_flag (ret_value))

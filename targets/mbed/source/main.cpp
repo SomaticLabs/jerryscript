@@ -16,7 +16,6 @@
 #include "mbed-drivers/mbed.h"
 
 #include "jerry-core/include/jerryscript.h"
-#include "jerry-core/include/jerryscript-port.h"
 #include "jerry_run.h"
 
 #include "jerry-targetjs.h"
@@ -25,7 +24,6 @@ static Serial pc (USBTX, USBRX); //tx, rx
 
 static int jerry_task_init (void)
 {
-  srand ((unsigned) jerry_port_get_current_time ());
   int retcode;
 
   DECLARE_JS_CODES;

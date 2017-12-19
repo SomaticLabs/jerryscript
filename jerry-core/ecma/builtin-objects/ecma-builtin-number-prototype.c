@@ -128,6 +128,7 @@ ecma_builtin_number_prototype_helper_to_string (lit_utf8_byte_t *digits_p, /**< 
 static inline lit_utf8_size_t __attr_always_inline___
 ecma_builtin_binary_floating_number_to_string (lit_utf8_byte_t *digits_p, /**< number as string
                                                                            * in binary-floating point number */
+                                               lit_utf8_size_t num_digits, /**< length of the string representation */
                                                int32_t exponent, /**< decimal exponent */
                                                lit_utf8_byte_t *to_digits_p, /**< [out] buffer to write */
                                                lit_utf8_size_t to_num_digits) /**< requested number of digits */
@@ -148,10 +149,10 @@ ecma_builtin_binary_floating_number_to_string (lit_utf8_byte_t *digits_p, /**< n
 
   if (to_num_digits > 0)
   {
-    /* Add significant digits of the fraction part and fill the remaining digits with zero */
+    /* Add significant digits of the fraction part. */
     while (to_num_digits > 0)
     {
-      *p++ = (*digits_p == 0 ? '0' : *digits_p++);
+      *p++ = num_digits == 1 ? '0' : *digits_p++;
       to_num_digits--;
     }
   }
@@ -224,7 +225,7 @@ ecma_builtin_number_prototype_object_to_string (ecma_value_t this_arg, /**< this
                                                 const ecma_value_t *arguments_list_p, /**< arguments list */
                                                 ecma_length_t arguments_list_len) /**< number of arguments */
 {
-  ecma_value_t ret_value = ECMA_VALUE_EMPTY;
+  ecma_value_t ret_value = ecma_make_simple_value (ECMA_SIMPLE_VALUE_EMPTY);
 
   ECMA_TRY_CATCH (this_value, ecma_builtin_number_prototype_object_value_of (this_arg), ret_value);
   ecma_number_t this_arg_number = ecma_get_number_from_value (this_value);
@@ -573,7 +574,7 @@ static ecma_value_t
 ecma_builtin_number_prototype_object_to_fixed (ecma_value_t this_arg, /**< this argument */
                                                ecma_value_t arg) /**< routine's argument */
 {
-  ecma_value_t ret_value = ECMA_VALUE_EMPTY;
+  ecma_value_t ret_value = ecma_make_simple_value (ECMA_SIMPLE_VALUE_EMPTY);
 
   ECMA_TRY_CATCH (this_value, ecma_builtin_number_prototype_object_value_of (this_arg), ret_value);
   ecma_number_t this_num = ecma_get_number_from_value (this_value);
@@ -606,10 +607,20 @@ ecma_builtin_number_prototype_object_to_fixed (ecma_value_t this_arg, /**< this 
       /* We handle infinities separately. */
       if (ecma_number_is_infinity (this_num))
       {
-        lit_magic_string_id_t id = (is_negative ? LIT_MAGIC_STRING_NEGATIVE_INFINITY_UL
-                                                : LIT_MAGIC_STRING_INFINITY_UL);
+        ecma_string_t *infinity_str_p = ecma_get_magic_string (LIT_MAGIC_STRING_INFINITY_UL);
 
-        ret_value = ecma_make_string_value (ecma_get_magic_string (id));
+        if (is_negative)
+        {
+          ecma_string_t *neg_str_p = ecma_new_ecma_string_from_utf8 ((const lit_utf8_byte_t *) "-", 1);
+          ecma_string_t *neg_inf_str_p = ecma_concat_ecma_strings (neg_str_p, infinity_str_p);
+          ecma_deref_ecma_string (infinity_str_p);
+          ecma_deref_ecma_string (neg_str_p);
+          ret_value = ecma_make_string_value (neg_inf_str_p);
+        }
+        else
+        {
+          ret_value = ecma_make_string_value (infinity_str_p);
+        }
       }
       else
       {
@@ -669,6 +680,7 @@ ecma_builtin_number_prototype_object_to_fixed (ecma_value_t this_arg, /**< this 
           lit_utf8_size_t to_num_digits = ((exponent > 0) ? (lit_utf8_size_t) (exponent + frac_digits)
                                                           : (lit_utf8_size_t) (frac_digits + 1));
           p += ecma_builtin_binary_floating_number_to_string (digits,
+                                                              num_digits,
                                                               exponent,
                                                               p,
                                                               to_num_digits);
@@ -703,7 +715,7 @@ static ecma_value_t
 ecma_builtin_number_prototype_object_to_exponential (ecma_value_t this_arg, /**< this argument */
                                                      ecma_value_t arg) /**< routine's argument */
 {
-  ecma_value_t ret_value = ECMA_VALUE_EMPTY;
+  ecma_value_t ret_value = ecma_make_simple_value (ECMA_SIMPLE_VALUE_EMPTY);
 
   /* 1. */
   ECMA_TRY_CATCH (this_value, ecma_builtin_number_prototype_object_value_of (this_arg), ret_value);
@@ -737,10 +749,20 @@ ecma_builtin_number_prototype_object_to_exponential (ecma_value_t this_arg, /**<
       /* 6. */
       if (ecma_number_is_infinity (this_num))
       {
-        lit_magic_string_id_t id = (is_negative ? LIT_MAGIC_STRING_NEGATIVE_INFINITY_UL
-                                                : LIT_MAGIC_STRING_INFINITY_UL);
+        ecma_string_t *infinity_str_p = ecma_get_magic_string (LIT_MAGIC_STRING_INFINITY_UL);
 
-        ret_value = ecma_make_string_value (ecma_get_magic_string (id));
+        if (is_negative)
+        {
+          ecma_string_t *neg_str_p = ecma_get_magic_string (LIT_MAGIC_STRING_MINUS_CHAR);
+          ecma_string_t *neg_inf_str_p = ecma_concat_ecma_strings (neg_str_p, infinity_str_p);
+          ecma_deref_ecma_string (infinity_str_p);
+          ecma_deref_ecma_string (neg_str_p);
+          ret_value = ecma_make_string_value (neg_inf_str_p);
+        }
+        else
+        {
+          ret_value = ecma_make_string_value (infinity_str_p);
+        }
       }
       else
       {
@@ -839,7 +861,7 @@ static ecma_value_t
 ecma_builtin_number_prototype_object_to_precision (ecma_value_t this_arg, /**< this argument */
                                                    ecma_value_t arg) /**< routine's argument */
 {
-  ecma_value_t ret_value = ECMA_VALUE_EMPTY;
+  ecma_value_t ret_value = ecma_make_simple_value (ECMA_SIMPLE_VALUE_EMPTY);
 
   /* 1. */
   ECMA_TRY_CATCH (this_value, ecma_builtin_number_prototype_object_value_of (this_arg), ret_value);
@@ -874,10 +896,20 @@ ecma_builtin_number_prototype_object_to_precision (ecma_value_t this_arg, /**< t
       /* 7. */
       if (ecma_number_is_infinity (this_num))
       {
-        lit_magic_string_id_t id = (is_negative ? LIT_MAGIC_STRING_NEGATIVE_INFINITY_UL
-                                                : LIT_MAGIC_STRING_INFINITY_UL);
+        ecma_string_t *infinity_str_p = ecma_get_magic_string (LIT_MAGIC_STRING_INFINITY_UL);
 
-        ret_value = ecma_make_string_value (ecma_get_magic_string (id));
+        if (is_negative)
+        {
+          ecma_string_t *neg_str_p = ecma_get_magic_string (LIT_MAGIC_STRING_MINUS_CHAR);
+          ecma_string_t *neg_inf_str_p = ecma_concat_ecma_strings (neg_str_p, infinity_str_p);
+          ecma_deref_ecma_string (infinity_str_p);
+          ecma_deref_ecma_string (neg_str_p);
+          ret_value = ecma_make_string_value (neg_inf_str_p);
+        }
+        else
+        {
+          ret_value = ecma_make_string_value (infinity_str_p);
+        }
       }
       /* 8. */
       else if (arg_num < 1.0 || arg_num >= 22.0)

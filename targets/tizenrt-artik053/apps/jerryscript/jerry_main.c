@@ -149,14 +149,6 @@ jerry_value_is_syntax_error (jerry_value_t error_value) /**< error value */
   }
 
   jerry_size_t err_str_size = jerry_get_string_size (error_name);
-  const char syntax_error_str[] = "SyntaxError";
-
-  if (err_str_size != strlen (syntax_error_str) - 1)
-  {
-    jerry_release_value (error_name);
-    return false;
-  }
-
   jerry_char_t err_str_buf[err_str_size];
 
   jerry_size_t sz = jerry_string_to_char_buffer (error_name, err_str_buf, err_str_size);
@@ -167,7 +159,7 @@ jerry_value_is_syntax_error (jerry_value_t error_value) /**< error value */
     return false;
   }
 
-  if (!strncmp ((char *) err_str_buf, syntax_error_str, sizeof (syntax_error_str) - 1))
+  if (!strcmp ((char *) err_str_buf, "SyntaxError"))
   {
     return true;
   }
@@ -388,8 +380,7 @@ jerry_cmd_main (int argc, char *argv[])
     {
       if (++i < argc)
       {
-        char *endptr;
-        debug_port = (uint16_t) strtol (argv[i], &endptr, 10);
+        debug_port = str_to_uint (argv[i]);
       }
       else
       {

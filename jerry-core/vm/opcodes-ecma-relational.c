@@ -29,46 +29,21 @@
  */
 
 /**
-* Equality opcode handler.
-*
-* See also: ECMA-262 v5, 11.9.1, 11.9.2
-*
-* @return ecma value
-*         Returned value must be freed with ecma_free_value
-*/
-ecma_value_t
-opfunc_equality (ecma_value_t left_value, /**< left value */
-                 ecma_value_t right_value) /**< right value */
-{
-  JERRY_ASSERT (!ECMA_IS_VALUE_ERROR (left_value)
-                && !ECMA_IS_VALUE_ERROR (right_value));
-
-  ecma_value_t compare_result = ecma_op_abstract_equality_compare (left_value, right_value);
-
-  JERRY_ASSERT (ecma_is_value_boolean (compare_result)
-                || ECMA_IS_VALUE_ERROR (compare_result));
-
-  return compare_result;
-} /* opfunc_equality */
-
-/**
- * Relation opcode handler.
+ * 'Less-than' opcode handler.
  *
- * See also: ECMA-262 v5, 11.8.1, 11.8.2, 11.8.3, 11.8.4
+ * See also: ECMA-262 v5, 11.8.1
  *
  * @return ecma value
  *         Returned value must be freed with ecma_free_value
  */
 ecma_value_t
-opfunc_relation (ecma_value_t left_value, /**< left value */
-                 ecma_value_t right_value, /**< right value */
-                 bool left_first, /**< 'LeftFirst' flag */
-                 bool is_invert) /**< is invert */
+opfunc_less_than (ecma_value_t left_value, /**< left value */
+                  ecma_value_t right_value) /**< right value */
 {
   JERRY_ASSERT (!ECMA_IS_VALUE_ERROR (left_value)
                 && !ECMA_IS_VALUE_ERROR (right_value));
 
-  ecma_value_t ret_value = ecma_op_abstract_relational_compare (left_value, right_value, left_first);
+  ecma_value_t ret_value = ecma_op_abstract_relational_compare (left_value, right_value, true);
 
   if (ECMA_IS_VALUE_ERROR (ret_value))
   {
@@ -77,20 +52,121 @@ opfunc_relation (ecma_value_t left_value, /**< left value */
 
   if (ecma_is_value_undefined (ret_value))
   {
-    ret_value = ECMA_VALUE_FALSE;
+    ret_value = ecma_make_simple_value (ECMA_SIMPLE_VALUE_FALSE);
+  }
+  else
+  {
+    JERRY_ASSERT (ecma_is_value_boolean (ret_value));
+  }
+
+  return ret_value;
+} /* opfunc_less_than */
+
+/**
+ * 'Greater-than' opcode handler.
+ *
+ * See also: ECMA-262 v5, 11.8.2
+ *
+ * @return ecma value
+ *         Returned value must be freed with ecma_free_value
+ */
+ecma_value_t
+opfunc_greater_than (ecma_value_t left_value, /**< left value */
+                     ecma_value_t right_value) /**< right value */
+{
+  JERRY_ASSERT (!ECMA_IS_VALUE_ERROR (left_value)
+                && !ECMA_IS_VALUE_ERROR (right_value));
+
+  ecma_value_t ret_value = ecma_op_abstract_relational_compare (left_value, right_value, false);
+
+  if (ECMA_IS_VALUE_ERROR (ret_value))
+  {
+    return ret_value;
+  }
+
+  if (ecma_is_value_undefined (ret_value))
+  {
+    ret_value = ecma_make_simple_value (ECMA_SIMPLE_VALUE_FALSE);
+  }
+  else
+  {
+    JERRY_ASSERT (ecma_is_value_boolean (ret_value));
+  }
+
+  return ret_value;
+} /* opfunc_greater_than */
+
+/**
+ * 'Less-than-or-equal' opcode handler.
+ *
+ * See also: ECMA-262 v5, 11.8.3
+ *
+ * @return ecma value
+ *         Returned value must be freed with ecma_free_value
+ */
+ecma_value_t
+opfunc_less_or_equal_than (ecma_value_t left_value, /**< left value */
+                           ecma_value_t right_value) /**< right value */
+{
+  JERRY_ASSERT (!ECMA_IS_VALUE_ERROR (left_value)
+                && !ECMA_IS_VALUE_ERROR (right_value));
+
+  ecma_value_t ret_value = ecma_op_abstract_relational_compare (left_value, right_value, false);
+
+  if (ECMA_IS_VALUE_ERROR (ret_value))
+  {
+    return ret_value;
+  }
+
+  if (ecma_is_value_undefined (ret_value))
+  {
+    ret_value = ecma_make_simple_value (ECMA_SIMPLE_VALUE_FALSE);
   }
   else
   {
     JERRY_ASSERT (ecma_is_value_boolean (ret_value));
 
-    if (is_invert)
-    {
-      ret_value = ecma_invert_boolean_value (ret_value);
-    }
+    ret_value = ecma_invert_boolean_value (ret_value);
   }
 
   return ret_value;
-} /* opfunc_relation */
+} /* opfunc_less_or_equal_than */
+
+/**
+ * 'Greater-than-or-equal' opcode handler.
+ *
+ * See also: ECMA-262 v5, 11.8.4
+ *
+ * @return ecma value
+ *         Returned value must be freed with ecma_free_value
+ */
+ecma_value_t
+opfunc_greater_or_equal_than (ecma_value_t left_value, /**< left value */
+                              ecma_value_t right_value) /**< right value */
+{
+  JERRY_ASSERT (!ECMA_IS_VALUE_ERROR (left_value)
+                && !ECMA_IS_VALUE_ERROR (right_value));
+
+  ecma_value_t ret_value = ecma_op_abstract_relational_compare (left_value, right_value, true);
+
+  if (ECMA_IS_VALUE_ERROR (ret_value))
+  {
+    return ret_value;
+  }
+
+  if (ecma_is_value_undefined (ret_value))
+  {
+    ret_value = ecma_make_simple_value (ECMA_SIMPLE_VALUE_FALSE);
+  }
+  else
+  {
+    JERRY_ASSERT (ecma_is_value_boolean (ret_value));
+
+    ret_value = ecma_invert_boolean_value (ret_value);
+  }
+
+  return ret_value;
+} /* opfunc_greater_or_equal_than */
 
 /**
  * 'instanceof' opcode handler.
@@ -104,7 +180,7 @@ ecma_value_t
 opfunc_instanceof (ecma_value_t left_value, /**< left value */
                    ecma_value_t right_value) /**< right value */
 {
-  ecma_value_t ret_value = ECMA_VALUE_EMPTY;
+  ecma_value_t ret_value = ecma_make_simple_value (ECMA_SIMPLE_VALUE_EMPTY);
 
   if (!ecma_is_value_object (right_value))
   {
@@ -138,7 +214,7 @@ ecma_value_t
 opfunc_in (ecma_value_t left_value, /**< left value */
            ecma_value_t right_value) /**< right value */
 {
-  ecma_value_t ret_value = ECMA_VALUE_EMPTY;
+  ecma_value_t ret_value = ecma_make_simple_value (ECMA_SIMPLE_VALUE_EMPTY);
 
   if (!ecma_is_value_object (right_value))
   {

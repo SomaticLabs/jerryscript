@@ -13,24 +13,27 @@
  * limitations under the License.
  */
 
-#include "jerryscript.h"
-#include "test-common.h"
+/*
+ *  Copyright (C) 2014 -2016  Espressif System
+ *
+ */
 
-int
-main (void)
-{
-  TEST_INIT ();
+#include "esp_common.h"
 
-  jerry_init (JERRY_INIT_EMPTY);
+#include "esp8266_gpio.h"
 
-  jerry_value_t obj_val = jerry_create_object ();
-  jerry_value_set_error_flag (&obj_val);
-  jerry_value_t err_val = jerry_acquire_value (obj_val);
 
-  jerry_value_clear_error_flag (&obj_val);
-  jerry_release_value (obj_val);
+//-----------------------------------------------------------------------------
 
-  jerry_release_value (err_val);
+void gpio_output_conf(uint32 set_mask, uint32 clear_mask, uint32 enable_mask,
+                      uint32 disable_mask) {
+  GPIO_REG_WRITE(GPIO_OUT_W1TS_ADDRESS, set_mask);
+  GPIO_REG_WRITE(GPIO_OUT_W1TC_ADDRESS, clear_mask);
+  GPIO_REG_WRITE(GPIO_ENABLE_W1TS_ADDRESS, enable_mask);
+  GPIO_REG_WRITE(GPIO_ENABLE_W1TC_ADDRESS, disable_mask);
+}
 
-  jerry_cleanup ();
-} /* main */
+
+uint32 gpio_input_get(void) {
+  return GPIO_REG_READ(GPIO_IN_ADDRESS);
+}
