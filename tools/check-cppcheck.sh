@@ -23,14 +23,12 @@ else
 fi
 
 JERRY_CORE_DIRS=`find jerry-core -type d`
-JERRY_EXT_DIRS=`find jerry-ext -type d`
-JERRY_PORT_DIRS=`find jerry-port -type d`
+JERRY_PORT_DEFAULT_DIRS=`find targets/default -type d`
 JERRY_LIBC_DIRS=`find jerry-libc -type d`
 JERRY_LIBM_DIRS=`find jerry-libm -type d`
 
-
 INCLUDE_DIRS=()
-for DIR in $JERRY_CORE_DIRS $JERRY_EXT_DIRS $JERRY_PORT_DIRS $JERRY_LIBC_DIRS $JERRY_LIBM_DIRS
+for DIR in $JERRY_CORE_DIRS $JERRY_PORT_DEFAULT_DIRS $JERRY_LIBC_DIRS $JERRY_LIBM_DIRS
 do
  INCLUDE_DIRS=("${INCLUDE_DIRS[@]}" "-I$DIR")
 done
@@ -38,9 +36,9 @@ done
 cppcheck -j$CPPCHECK_JOBS --force \
  --language=c --std=c99 \
  --enable=warning,style,performance,portability,information \
- --template="{file}:{line}: {severity}({id}): {message}" \
+ --quiet --template="{file}:{line}: {severity}({id}): {message}" \
  --error-exitcode=1 \
  --exitcode-suppressions=tools/cppcheck/suppressions-list \
  --suppressions-list=tools/cppcheck/suppressions-list \
  "${INCLUDE_DIRS[@]}" \
- jerry-core jerry-ext jerry-port jerry-libc jerry-libm jerry-main tests/unit-*
+ jerry-core targets/default jerry-libc jerry-libm *.c *h tests/unit

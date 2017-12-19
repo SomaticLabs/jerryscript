@@ -43,33 +43,24 @@ endif()
 
 set(DEFINES_JERRY ${DEFINES_JERRY} JERRY_COMMIT_HASH="${JERRY_COMMIT_HASH}")
 
-macro(jerry_create_executable JERRY_NAME)
-  add_executable(${JERRY_NAME} ${ARGN})
+macro(jerry_create_executable JERRY_NAME SOURCE_JERRY_STANDALONE_MAIN)
+  add_executable(${JERRY_NAME} ${SOURCE_JERRY_STANDALONE_MAIN})
   set_property(TARGET ${JERRY_NAME}
                PROPERTY LINK_FLAGS "${LINKER_FLAGS_COMMON}")
   target_compile_definitions(${JERRY_NAME} PRIVATE ${DEFINES_JERRY})
+  target_include_directories(${JERRY_NAME} PRIVATE ${PORT_DIR})
+  link_directories(${CMAKE_BINARY_DIR})
 
   target_link_libraries(${JERRY_NAME} jerry-core)
 
   install(TARGETS ${JERRY_NAME} DESTINATION bin)
 endmacro()
 
-if(JERRY_LIBC AND FEATURE_EXTERNAL_CONTEXT)
-  MESSAGE(FATAL_ERROR "This configuration is not supported for jerry-main. Please build against your system libc to enable the external context.")
-endif()
-
 # Jerry standalones
 if(JERRY_CMDLINE)
-  jerry_create_executable("jerry" "main-unix.c" "cli.c")
-  target_link_libraries("jerry" jerry-ext jerry-port-default)
+  jerry_create_executable("jerry" "main-unix.c")
 endif()
 
 if(JERRY_CMDLINE_MINIMAL)
   jerry_create_executable("jerry-minimal" "main-unix-minimal.c")
-  target_link_libraries("jerry-minimal" jerry-port-default-minimal)
-endif()
-
-if(JERRY_CMDLINE_SNAPSHOT)
-  jerry_create_executable("jerry-snapshot" "main-unix-snapshot.c" "cli.c")
-  target_link_libraries("jerry-snapshot" jerry-port-default)
 endif()

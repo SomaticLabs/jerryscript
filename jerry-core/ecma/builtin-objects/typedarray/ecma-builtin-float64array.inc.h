@@ -16,11 +16,21 @@
 /*
  * Float64Array description
  */
+#ifndef NUMBER_VALUE
+# define NUMBER_VALUE(name, number_value, prop_attributes)
+#endif /* !NUMBER_VALUE */
 
-#include "ecma-builtin-helpers-macro-defines.inc.h"
+#ifndef STRING_VALUE
+# define STRING_VALUE(name, magic_string_id, prop_attributes)
+#endif /* !STRING_VALUE */
 
-#ifndef CONFIG_DISABLE_ES2015_TYPEDARRAY_BUILTIN
-#if CONFIG_ECMA_NUMBER_TYPE == CONFIG_ECMA_NUMBER_FLOAT64
+#ifndef OBJECT_VALUE
+# define OBJECT_VALUE(name, obj_builtin_id, prop_attributes)
+#endif /* !OBJECT_VALUE */
+
+#ifndef ROUTINE
+# define ROUTINE(name, c_function_name, args_number, length_prop_value)
+#endif /* !ROUTINE */
 
 /* ES2015 22.2.5 */
 NUMBER_VALUE (LIT_MAGIC_STRING_LENGTH,
@@ -47,7 +57,10 @@ OBJECT_VALUE (LIT_MAGIC_STRING_PROTOTYPE,
               ECMA_BUILTIN_ID_FLOAT64ARRAY_PROTOTYPE,
               ECMA_PROPERTY_FIXED)
 
-#endif /* CONFIG_ECMA_NUMBER_TYPE == CONFIG_ECMA_NUMBER_FLOAT64 */
-#endif /* !CONFIG_DISABLE_ES2015_TYPEDARRAY_BUILTIN */
-
-#include "ecma-builtin-helpers-macro-undefs.inc.h"
+#undef SIMPLE_VALUE
+#undef NUMBER_VALUE
+#undef STRING_VALUE
+#undef OBJECT_VALUE
+#undef ROUTINE
+#undef ACCESSOR_READ_WRITE
+#undef ACCESSOR_READ_ONLY

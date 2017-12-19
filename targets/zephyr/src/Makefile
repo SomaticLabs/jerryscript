@@ -17,6 +17,6 @@ $(info Compiling application)
 endif
 
 # Adding path for jerry script APIs
-ZEPHYRINCLUDE += $(JERRY_INCLUDE)
+ZEPHYRINCLUDE += -I$(JERRY_INCLUDE)
 
 obj-y += main-zephyr.o getline-zephyr.o jerry-port.o

@@ -15,7 +15,7 @@
 
 #include "js-parser-internal.h"
 
-#ifndef JERRY_DISABLE_JS_PARSER
+#ifdef JERRY_JS_PARSER
 
 /** \addtogroup parser Parser
  * @{
@@ -93,8 +93,6 @@ parser_flush_cbc (parser_context_t *context_p) /**< context */
   if (PARSER_IS_BASIC_OPCODE (context_p->last_cbc_opcode))
   {
     cbc_opcode_t opcode = (cbc_opcode_t) context_p->last_cbc_opcode;
-
-    JERRY_ASSERT (opcode < CBC_END);
     flags = cbc_flags[opcode];
 
     PARSER_APPEND_TO_BYTE_CODE (context_p, opcode);
@@ -104,7 +102,6 @@ parser_flush_cbc (parser_context_t *context_p) /**< context */
   {
     cbc_ext_opcode_t opcode = (cbc_ext_opcode_t) PARSER_GET_EXT_OPCODE (context_p->last_cbc_opcode);
 
-    JERRY_ASSERT (opcode < CBC_EXT_END);
     flags = cbc_ext_flags[opcode];
     parser_emit_two_bytes (context_p, CBC_EXT_OPCODE, opcode);
     context_p->byte_code_size += 2;
@@ -372,7 +369,6 @@ parser_emit_cbc_forward_branch (parser_context_t *context_p, /**< context */
 
   if (PARSER_IS_BASIC_OPCODE (opcode))
   {
-    JERRY_ASSERT (opcode < CBC_END);
     flags = cbc_flags[opcode];
     extra_byte_code_increase = 0;
   }
@@ -381,7 +377,6 @@ parser_emit_cbc_forward_branch (parser_context_t *context_p, /**< context */
     PARSER_APPEND_TO_BYTE_CODE (context_p, CBC_EXT_OPCODE);
     opcode = (uint16_t) PARSER_GET_EXT_OPCODE (opcode);
 
-    JERRY_ASSERT (opcode < CBC_EXT_END);
     flags = cbc_ext_flags[opcode];
     extra_byte_code_increase = 1;
   }
@@ -483,7 +478,6 @@ parser_emit_cbc_backward_branch (parser_context_t *context_p, /**< context */
 
   if (PARSER_IS_BASIC_OPCODE (opcode))
   {
-    JERRY_ASSERT (opcode < CBC_END);
     flags = cbc_flags[opcode];
 
 #ifdef PARSER_DUMP_BYTE_CODE
@@ -495,7 +489,6 @@ parser_emit_cbc_backward_branch (parser_context_t *context_p, /**< context */
     PARSER_APPEND_TO_BYTE_CODE (context_p, CBC_EXT_OPCODE);
     opcode = (uint16_t) PARSER_GET_EXT_OPCODE (opcode);
 
-    JERRY_ASSERT (opcode < CBC_EXT_END);
     flags = cbc_ext_flags[opcode];
     context_p->byte_code_size++;
 
@@ -577,7 +570,7 @@ parser_set_branch_to_current_position (parser_context_t *context_p, /**< context
     parser_flush_cbc (context_p);
   }
 
-  context_p->status_flags &= (uint32_t) ~PARSER_NO_END_LABEL;
+  context_p->status_flags &= ~PARSER_NO_END_LABEL;
 
   JERRY_ASSERT (context_p->byte_code_size > (branch_p->offset >> 8));
 
@@ -738,11 +731,11 @@ parser_error_to_string (parser_error_t error) /**< error code */
     }
     case PARSER_ERR_NUMBER_TOO_LONG:
     {
-      return "Number is too long.";
+      return "Number too long.";
     }
     case PARSER_ERR_REGEXP_TOO_LONG:
     {
-      return "Regexp is too long.";
+      return "Regexp too long.";
     }
     case PARSER_ERR_UNTERMINATED_MULTILINE_COMMENT:
     {
@@ -774,11 +767,11 @@ parser_error_to_string (parser_error_t error) /**< error code */
     }
     case PARSER_ERR_EVAL_NOT_ALLOWED:
     {
-      return "Eval is not allowed to be used here in strict mode.";
+      return "Eval is not allowed to use here in strict mode.";
     }
     case PARSER_ERR_ARGUMENTS_NOT_ALLOWED:
     {
-      return "Arguments is not allowed to be used here in strict mode.";
+      return "Arguments is not allowed to use here in strict mode.";
     }
     case PARSER_ERR_DELETE_IDENT_NOT_ALLOWED:
     {
@@ -786,11 +779,11 @@ parser_error_to_string (parser_error_t error) /**< error code */
     }
     case PARSER_ERR_EVAL_CANNOT_ASSIGNED:
     {
-      return "Eval cannot be assigned to in strict mode.";
+      return "Eval cannot assigned in strict mode.";
     }
     case PARSER_ERR_ARGUMENTS_CANNOT_ASSIGNED:
     {
-      return "Arguments cannot be assigned to in strict mode.";
+      return "Arguments cannot assigned in strict mode.";
     }
     case PARSER_ERR_WITH_NOT_ALLOWED:
     {
@@ -798,7 +791,7 @@ parser_error_to_string (parser_error_t error) /**< error code */
     }
     case PARSER_ERR_MULTIPLE_DEFAULTS_NOT_ALLOWED:
     {
-      return "Multiple default cases are not allowed.";
+      return "Multiple default cases not allowed.";
     }
     case PARSER_ERR_DEFAULT_NOT_IN_SWITCH:
     {
@@ -824,12 +817,6 @@ parser_error_to_string (parser_error_t error) /**< error code */
     {
       return "Expected ']' token.";
     }
-#ifndef CONFIG_DISABLE_ES2015_TEMPLATE_STRINGS
-    case PARSER_ERR_RIGHT_BRACE_EXPECTED:
-    {
-      return "Expected '}' token.";
-    }
-#endif /* !CONFIG_DISABLE_ES2015_TEMPLATE_STRINGS */
     case PARSER_ERR_COLON_EXPECTED:
     {
       return "Expected ':' token.";
@@ -908,7 +895,7 @@ parser_error_to_string (parser_error_t error) /**< error code */
     }
     case PARSER_ERR_INVALID_BREAK_LABEL:
     {
-      return "Labeled statement targeted by a break not found.";
+      return "Labelled statement targeted by a break not found.";
     }
     case PARSER_ERR_INVALID_CONTINUE:
     {
@@ -916,7 +903,7 @@ parser_error_to_string (parser_error_t error) /**< error code */
     }
     case PARSER_ERR_INVALID_CONTINUE_LABEL:
     {
-      return "Labeled statement targeted by a continue not found.";
+      return "Labelled statement targeted by a continue noty found.";
     }
     case PARSER_ERR_INVALID_RETURN:
     {
@@ -936,7 +923,7 @@ parser_error_to_string (parser_error_t error) /**< error code */
     }
     case PARSER_ERR_NON_STRICT_ARG_DEFINITION:
     {
-      return "Non-strict argument definition.";
+      return "Non strict argument definition.";
     }
     default:
     {
@@ -953,4 +940,4 @@ parser_error_to_string (parser_error_t error) /**< error code */
  * @}
  */
 
-#endif /* !JERRY_DISABLE_JS_PARSER */
+#endif /* JERRY_JS_PARSER */

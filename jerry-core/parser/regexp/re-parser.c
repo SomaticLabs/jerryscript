@@ -36,8 +36,8 @@
 /**
  * Lookup a character in the input string.
  *
- * @return true - if lookup number of characters ahead are hex digits
- *         false - otherwise
+ * @return true, if lookup number of characters ahead are hex digits
+ *         false, otherwise
  */
 static bool
 re_hex_lookup (re_parser_ctx_t *parser_ctx_p, /**< RegExp parser context */
@@ -64,8 +64,8 @@ re_hex_lookup (re_parser_ctx_t *parser_ctx_p, /**< RegExp parser context */
 /**
  * Consume non greedy (question mark) character if present.
  *
- * @return true - if non-greedy character found
- *         false - otherwise
+ * @return true, if non-greedy character found
+ *         false, otherwise
  */
 static inline bool __attr_always_inline___
 re_parse_non_greedy_char (re_parser_ctx_t *parser_ctx_p) /**< RegExp parser context */
@@ -215,13 +215,13 @@ re_parse_iterator (re_parser_ctx_t *parser_ctx_p, /**< RegExp parser context */
           if (qmax != RE_ITERATOR_INFINITE)
           {
             re_token_p->qmin = qmax;
+            re_token_p->qmax = qmin;
           }
           else
           {
             re_token_p->qmin = qmin;
+            re_token_p->qmax = qmin;
           }
-
-          re_token_p->qmax = qmin;
 
           break;
         }
@@ -363,7 +363,7 @@ re_parse_char_class (re_parser_ctx_t *parser_ctx_p, /**< number of classes */
         return ecma_raise_syntax_error (ECMA_ERR_MSG ("invalid character class, end of string after '\\'"));
       }
 
-      ch = lit_utf8_read_next (&parser_ctx_p->input_curr_p);
+      ch = *parser_ctx_p->input_curr_p++;
 
       if (ch == LIT_CHAR_LOWERCASE_B)
       {
@@ -419,13 +419,8 @@ re_parse_char_class (re_parser_ctx_t *parser_ctx_p, /**< number of classes */
         }
 
         parser_ctx_p->input_curr_p += 2;
-        if (is_range == false && lit_utf8_peek_next (parser_ctx_p->input_curr_p) == LIT_CHAR_MINUS)
-        {
-          start = code_unit;
-          continue;
-        }
-
-        ch = code_unit;
+        append_char_class (re_ctx_p, code_unit, code_unit);
+        ch = LIT_CHAR_UNDEF;
       }
       else if (ch == LIT_CHAR_LOWERCASE_U)
       {
@@ -437,13 +432,8 @@ re_parse_char_class (re_parser_ctx_t *parser_ctx_p, /**< number of classes */
         }
 
         parser_ctx_p->input_curr_p += 4;
-        if (is_range == false && lit_utf8_peek_next (parser_ctx_p->input_curr_p) == LIT_CHAR_MINUS)
-        {
-          start = code_unit;
-          continue;
-        }
-
-        ch = code_unit;
+        append_char_class (re_ctx_p, code_unit, code_unit);
+        ch = LIT_CHAR_UNDEF;
       }
       else if (ch == LIT_CHAR_LOWERCASE_D)
       {
@@ -513,35 +503,53 @@ re_parse_char_class (re_parser_ctx_t *parser_ctx_p, /**< number of classes */
       else if (lit_char_is_octal_digit ((ecma_char_t) ch)
                && ch != LIT_CHAR_0)
       {
-        lit_utf8_decr (&parser_ctx_p->input_curr_p);
+        parser_ctx_p->input_curr_p--;
         ch = (ecma_char_t) re_parse_octal (parser_ctx_p);
       }
     } /* ch == LIT_CHAR_BACKSLASH */
 
-    if (start != LIT_CHAR_UNDEF)
+    if (ch == LIT_CHAR_UNDEF)
     {
-      if (is_range)
+      if (start != LIT_CHAR_UNDEF)
       {
-        if (start > ch)
+        if (is_range)
         {
-          return ecma_raise_syntax_error (ECMA_ERR_MSG ("invalid character class, wrong order"));
+          return ecma_raise_syntax_error (ECMA_ERR_MSG ("invalid character class, invalid range"));
         }
         else
         {
-          append_char_class (re_ctx_p, start, ch);
+          append_char_class (re_ctx_p, start, start);
           start = LIT_CHAR_UNDEF;
-          is_range = false;
         }
-      }
-      else
-      {
-        append_char_class (re_ctx_p, start, start);
-        start = ch;
       }
     }
     else
     {
-      start = ch;
+      if (start != LIT_CHAR_UNDEF)
+      {
+        if (is_range)
+        {
+          if (start > ch)
+          {
+            return ecma_raise_syntax_error (ECMA_ERR_MSG ("invalid character class, wrong order"));
+          }
+          else
+          {
+            append_char_class (re_ctx_p, start, ch);
+            start = LIT_CHAR_UNDEF;
+            is_range = false;
+          }
+        }
+        else
+        {
+          append_char_class (re_ctx_p, start, start);
+          start = ch;
+        }
+      }
+      else
+      {
+        start = ch;
+      }
     }
   }
   while (token_type == RE_TOK_START_CHAR_CLASS || token_type == RE_TOK_START_INV_CHAR_CLASS);

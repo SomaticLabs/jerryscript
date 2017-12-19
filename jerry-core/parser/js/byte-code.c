@@ -15,13 +15,7 @@
 
 #include "js-parser-internal.h"
 
-JERRY_STATIC_ASSERT ((sizeof (cbc_uint8_arguments_t) % sizeof (jmem_cpointer_t)) == 0,
-                     sizeof_cbc_uint8_arguments_t_must_be_divisible_by_sizeof_jmem_cpointer_t);
-
-JERRY_STATIC_ASSERT ((sizeof (cbc_uint16_arguments_t) % sizeof (jmem_cpointer_t)) == 0,
-                     sizeof_cbc_uint16_arguments_t_must_be_divisible_by_sizeof_jmem_cpointer_t);
-
-#ifndef JERRY_DISABLE_JS_PARSER
+#ifdef JERRY_JS_PARSER
 
 /** \addtogroup parser Parser
  * @{
@@ -84,4 +78,4 @@ const char * const cbc_ext_names[] =
  * @}
  */
 
-#endif /* !JERRY_DISABLE_JS_PARSER */
+#endif /* JERRY_JS_PARSER */

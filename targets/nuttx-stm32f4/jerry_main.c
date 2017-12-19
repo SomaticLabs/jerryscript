@@ -16,12 +16,11 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <setjmp.h>
 
 #include "jerryscript.h"
-#include "jerryscript-ext/handler.h"
-#include "jerryscript-port.h"
+#include "jerry-port.h"
 #include "jmem.h"
-#include "setjmp.h"
 
 /**
  * Maximum command line arguments number.
@@ -35,27 +34,21 @@
 #define JERRY_STANDALONE_EXIT_CODE_FAIL (1)
 
 /**
- * Context size of the SYNTAX_ERROR
- */
-#define SYNTAX_ERROR_CONTEXT_SIZE 2
-
-/**
  * Print usage and available options
  */
 static void
 print_help (char *name)
 {
-  printf ("Usage: %s [OPTION]... [FILE]...\n"
-          "\n"
-          "Options:\n"
-          "  --log-level [0-3]\n"
-          "  --mem-stats\n"
-          "  --mem-stats-separate\n"
-          "  --show-opcodes\n"
-          "  --start-debug-server\n"
-          "  --debug-server-port [port]\n"
-          "\n",
-          name);
+  jerry_port_console ("Usage: %s [OPTION]... [FILE]...\n"
+                      "\n"
+                      "Options:\n"
+                      "  --log-level [0-3]\n"
+                      "  --mem-stats\n"
+                      "  --mem-stats-separate\n"
+                      "  --show-opcodes\n"
+                      "  --start-debug-server\n"
+                      "\n",
+                      name);
 } /* print_help */
 
 /**
@@ -121,216 +114,6 @@ read_file (const char *file_name, /**< source code */
 } /* read_file */
 
 /**
- * Check whether an error is a SyntaxError or not
- *
- * @return true - if param is SyntaxError
- *         false - otherwise
- */
-static bool
-jerry_value_is_syntax_error (jerry_value_t error_value) /**< error value */
-{
-  assert (jerry_is_feature_enabled (JERRY_FEATURE_ERROR_MESSAGES));
-
-  if (!jerry_value_is_object (error_value))
-  {
-    return false;
-  }
-
-  jerry_value_t prop_name = jerry_create_string ((const jerry_char_t *)"name");
-  jerry_value_t error_name = jerry_get_property (error_value, prop_name);
-  jerry_release_value (prop_name);
-
-  if (jerry_value_has_error_flag (error_name)
-      || !jerry_value_is_string (error_name))
-  {
-    return false;
-  }
-
-  jerry_size_t err_str_size = jerry_get_string_size (error_name);
-  jerry_char_t err_str_buf[err_str_size];
-
-  jerry_size_t sz = jerry_string_to_char_buffer (error_name, err_str_buf, err_str_size);
-  jerry_release_value (error_name);
-
-  if (sz == 0)
-  {
-    return false;
-  }
-
-  if (!strcmp ((char *) err_str_buf, "SyntaxError"))
-  {
-    return true;
-  }
-
-  return false;
-} /* jerry_value_is_syntax_error */
-
-/**
- * Convert string into unsigned integer
- *
- * @return converted number
- */
-static uint32_t
-str_to_uint (const char *num_str_p) /**< string to convert */
-{
-  assert (jerry_is_feature_enabled (JERRY_FEATURE_ERROR_MESSAGES));
-
-  uint32_t result = 0;
-
-  while (*num_str_p != '\0')
-  {
-    assert (*num_str_p >= '0' && *num_str_p <= '9');
-
-    result *= 10;
-    result += (uint32_t) (*num_str_p - '0');
-    num_str_p++;
-  }
-
-  return result;
-} /* str_to_uint */
-
-/**
- * Print error value
- */
-static void
-print_unhandled_exception (jerry_value_t error_value, /**< error value */
-                           const jerry_char_t *source_p) /**< source_p */
-{
-  assert (jerry_value_has_error_flag (error_value));
-
-  jerry_value_clear_error_flag (&error_value);
-  jerry_value_t err_str_val = jerry_value_to_string (error_value);
-  jerry_size_t err_str_size = jerry_get_string_size (err_str_val);
-  jerry_char_t err_str_buf[256];
-
-  if (err_str_size >= 256)
-  {
-    const char msg[] = "[Error message too long]";
-    err_str_size = sizeof (msg) / sizeof (char) - 1;
-    memcpy (err_str_buf, msg, err_str_size);
-  }
-  else
-  {
-    jerry_size_t sz = jerry_string_to_char_buffer (err_str_val, err_str_buf, err_str_size);
-    assert (sz == err_str_size);
-    err_str_buf[err_str_size] = 0;
-
-    if (jerry_is_feature_enabled (JERRY_FEATURE_ERROR_MESSAGES) && jerry_value_is_syntax_error (error_value))
-    {
-      uint32_t err_line = 0;
-      uint32_t err_col = 0;
-
-      /* 1. parse column and line information */
-      for (uint32_t i = 0; i < sz; i++)
-      {
-        if (!strncmp ((char *) (err_str_buf + i), "[line: ", 7))
-        {
-          i += 7;
-
-          char num_str[8];
-          uint32_t j = 0;
-
-          while (i < sz && err_str_buf[i] != ',')
-          {
-            num_str[j] = (char) err_str_buf[i];
-            j++;
-            i++;
-          }
-          num_str[j] = '\0';
-
-          err_line = str_to_uint (num_str);
-
-          if (strncmp ((char *) (err_str_buf + i), ", column: ", 10))
-          {
-            break; /* wrong position info format */
-          }
-
-          i += 10;
-          j = 0;
-
-          while (i < sz && err_str_buf[i] != ']')
-          {
-            num_str[j] = (char) err_str_buf[i];
-            j++;
-            i++;
-          }
-          num_str[j] = '\0';
-
-          err_col = str_to_uint (num_str);
-          break;
-        }
-      } /* for */
-
-      if (err_line != 0 && err_col != 0)
-      {
-        uint32_t curr_line = 1;
-
-        bool is_printing_context = false;
-        uint32_t pos = 0;
-
-        /* 2. seek and print */
-        while (source_p[pos] != '\0')
-        {
-          if (source_p[pos] == '\n')
-          {
-            curr_line++;
-          }
-
-          if (err_line < SYNTAX_ERROR_CONTEXT_SIZE
-              || (err_line >= curr_line
-                  && (err_line - curr_line) <= SYNTAX_ERROR_CONTEXT_SIZE))
-          {
-            /* context must be printed */
-            is_printing_context = true;
-          }
-
-          if (curr_line > err_line)
-          {
-            break;
-          }
-
-          if (is_printing_context)
-          {
-            jerry_port_log (JERRY_LOG_LEVEL_ERROR, "%c", source_p[pos]);
-          }
-
-          pos++;
-        }
-
-        jerry_port_log (JERRY_LOG_LEVEL_ERROR, "\n");
-
-        while (--err_col)
-        {
-          jerry_port_log (JERRY_LOG_LEVEL_ERROR, "~");
-        }
-
-        jerry_port_log (JERRY_LOG_LEVEL_ERROR, "^\n");
-      }
-    }
-  }
-
-  jerry_port_log (JERRY_LOG_LEVEL_ERROR, "Script Error: %s\n", err_str_buf);
-  jerry_release_value (err_str_val);
-} /* print_unhandled_exception */
-
-/**
- * Register a JavaScript function in the global object.
- */
-static void
-register_js_function (const char *name_p, /**< name of the function */
-                      jerry_external_handler_t handler_p) /**< function callback */
-{
-  jerry_value_t result_val = jerryx_handler_register_global ((const jerry_char_t *) name_p, handler_p);
-
-  if (jerry_value_has_error_flag (result_val))
-  {
-    jerry_port_log (JERRY_LOG_LEVEL_WARNING, "Warning: failed to register '%s' method.", name_p);
-  }
-
-  jerry_release_value (result_val);
-} /* register_js_function */
-
-/**
  * JerryScript log level
  */
 static jerry_log_level_t jerry_log_level = JERRY_LOG_LEVEL_ERROR;
@@ -358,8 +141,6 @@ int jerry_main (int argc, char *argv[])
   const char *file_names[JERRY_MAX_COMMAND_LINE_ARGS];
   int i;
   int files_counter = 0;
-  bool start_debug_server = false;
-  uint16_t debug_port = 5001;
 
   jerry_init_flag_t flags = JERRY_INIT_EMPTY;
 
@@ -373,17 +154,14 @@ int jerry_main (int argc, char *argv[])
     else if (!strcmp ("--mem-stats", argv[i]))
     {
       flags |= JERRY_INIT_MEM_STATS;
-      jerry_log_level = JERRY_LOG_LEVEL_DEBUG;
     }
     else if (!strcmp ("--mem-stats-separate", argv[i]))
     {
       flags |= JERRY_INIT_MEM_STATS_SEPARATE;
-      jerry_log_level = JERRY_LOG_LEVEL_DEBUG;
     }
     else if (!strcmp ("--show-opcodes", argv[i]))
     {
       flags |= JERRY_INIT_SHOW_OPCODES | JERRY_INIT_SHOW_REGEXP_OPCODES;
-      jerry_log_level = JERRY_LOG_LEVEL_DEBUG;
     }
     else if (!strcmp ("--log-level", argv[i]))
     {
@@ -399,19 +177,7 @@ int jerry_main (int argc, char *argv[])
     }
     else if (!strcmp ("--start-debug-server", argv[i]))
     {
-      start_debug_server = true;
-    }
-    else if (!strcmp ("--debug-server-port", argv[i]))
-    {
-      if (++i < argc)
-      {
-        debug_port = str_to_uint (argv[i]);
-      }
-      else
-      {
-        jerry_port_log (JERRY_LOG_LEVEL_ERROR, "Error: wrong format or invalid argument\n");
-        return JERRY_STANDALONE_EXIT_CODE_FAIL;
-      }
+      flags |= JERRY_INIT_DEBUGGER;
     }
     else
     {
@@ -419,86 +185,58 @@ int jerry_main (int argc, char *argv[])
     }
   }
 
-  jerry_init (flags);
-
-  if (start_debug_server)
-  {
-    jerry_debugger_init (debug_port);
-  }
-
-  register_js_function ("assert", jerryx_handler_assert);
-  register_js_function ("gc", jerryx_handler_gc);
-  register_js_function ("print", jerryx_handler_print);
-
-  jerry_value_t ret_value = jerry_create_undefined ();
-
   if (files_counter == 0)
   {
-    printf ("No input files, running a hello world demo:\n");
-    const jerry_char_t script[] = "var str = 'Hello World'; print(str + ' from JerryScript')";
-    size_t script_size = strlen ((const char *) script);
+    jerry_port_console ("No input files, running a hello world demo:\n");
+    char *source_p = "var a = 3.5; print('Hello world ' + (a + 1.5) + ' times from JerryScript')";
 
-    ret_value = jerry_parse (script, script_size, false);
+    jerry_run_simple ((jerry_char_t *) source_p, strlen (source_p), flags);
+    return JERRY_STANDALONE_EXIT_CODE_OK;
+  }
+
+  jerry_init (flags);
+  jerry_value_t ret_value = jerry_create_undefined ();
+
+  for (i = 0; i < files_counter; i++)
+  {
+    size_t source_size;
+    const jerry_char_t *source_p = read_file (file_names[i], &source_size);
+
+    if (source_p == NULL)
+    {
+      jerry_port_log (JERRY_LOG_LEVEL_ERROR, "Source file load error\n");
+      return JERRY_STANDALONE_EXIT_CODE_FAIL;
+    }
+
+    ret_value = jerry_parse_named_resource ((jerry_char_t *) file_names[i],
+                                            strlen (file_names[i]),
+                                            source_p,
+                                            source_size,
+                                            false);
+
+    jmem_heap_free_block ((void*) source_p, source_size);
 
     if (!jerry_value_has_error_flag (ret_value))
     {
-      ret_value = jerry_run (ret_value);
+      jerry_value_t func_val = ret_value;
+      ret_value = jerry_run (func_val);
+      jerry_release_value (func_val);
     }
-  }
-  else
-  {
-    for (i = 0; i < files_counter; i++)
+
+    if (jerry_value_has_error_flag (ret_value))
     {
-      size_t source_size;
-      const jerry_char_t *source_p = read_file (file_names[i], &source_size);
-
-      if (source_p == NULL)
-      {
-        jerry_port_log (JERRY_LOG_LEVEL_ERROR, "Source file load error\n");
-        return JERRY_STANDALONE_EXIT_CODE_FAIL;
-      }
-
-      ret_value = jerry_parse_named_resource ((jerry_char_t *) file_names[i],
-                                              strlen (file_names[i]),
-                                              source_p,
-                                              source_size,
-                                              false);
-
-      if (!jerry_value_has_error_flag (ret_value))
-      {
-        jerry_value_t func_val = ret_value;
-        ret_value = jerry_run (func_val);
-        jerry_release_value (func_val);
-      }
-
-      if (jerry_value_has_error_flag (ret_value))
-      {
-        print_unhandled_exception (ret_value, source_p);
-        jmem_heap_free_block ((void*) source_p, source_size);
-
-        break;
-      }
-
-      jmem_heap_free_block ((void*) source_p, source_size);
-
-      jerry_release_value (ret_value);
-      ret_value = jerry_create_undefined ();
+      break;
     }
+
+    jerry_release_value (ret_value);
+    ret_value = jerry_create_undefined ();
   }
 
   int ret_code = JERRY_STANDALONE_EXIT_CODE_OK;
 
   if (jerry_value_has_error_flag (ret_value))
   {
-    ret_code = JERRY_STANDALONE_EXIT_CODE_FAIL;
-  }
-
-  jerry_release_value (ret_value);
-
-  ret_value = jerry_run_all_enqueued_jobs ();
-
-  if (jerry_value_has_error_flag (ret_value))
-  {
+    jerry_port_log (JERRY_LOG_LEVEL_ERROR, "Unhandled exception: Script Error!\n");
     ret_code = JERRY_STANDALONE_EXIT_CODE_FAIL;
   }
 
@@ -515,6 +253,19 @@ void jerry_port_fatal (jerry_fatal_code_t code)
 {
   exit (1);
 } /* jerry_port_fatal */
+
+/**
+ * Provide console message implementation for the engine.
+ */
+void
+jerry_port_console (const char *format, /**< format string */
+                    ...) /**< parameters */
+{
+  va_list args;
+  va_start (args, format);
+  vfprintf (stdout, format, args);
+  va_end (args);
+} /* jerry_port_console */
 
 /**
  * Provide log message implementation for the engine.
@@ -536,16 +287,15 @@ jerry_port_log (jerry_log_level_t level, /**< log level */
 /**
  * Dummy function to get the time zone.
  *
- * @return true
+ * @return false
  */
 bool
 jerry_port_get_time_zone (jerry_time_zone_t *tz_p)
 {
-  /* We live in UTC. */
   tz_p->offset = 0;
   tz_p->daylight_saving_time = 0;
 
-  return true;
+  return false;
 } /* jerry_port_get_time_zone */
 
 /**
@@ -554,17 +304,32 @@ jerry_port_get_time_zone (jerry_time_zone_t *tz_p)
  * @return 0
  */
 double
-jerry_port_get_current_time (void)
+jerry_port_get_current_time ()
 {
   return 0;
 } /* jerry_port_get_current_time */
 
 /**
- * Provide the implementation of jerryx_port_handler_print_char.
- * Uses 'printf' to print a single character to standard output.
+ * Compiler built-in setjmp function.
+ *
+ * @return 0 when called the first time
+ *         1 when returns from a longjmp call
+ */
+int
+setjmp (jmp_buf buf)
+{
+  return __builtin_setjmp (buf);
+} /* setjmp */
+
+/**
+ * Compiler built-in longjmp function.
+ *
+ * Note:
+ *   ignores value argument
  */
 void
-jerryx_port_handler_print_char (char c) /**< the character to print */
+longjmp (jmp_buf buf, int value)
 {
-  printf ("%c", c);
-} /* jerryx_port_handler_print_char */
+  /* Must be called with 1. */
+  __builtin_longjmp (buf, 1);
+} /* longjmp */

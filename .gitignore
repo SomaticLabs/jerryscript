@@ -4,8 +4,8 @@ build/*
 
 # IDE related files
 nbproject
-*.sublime-project
-*.sublime-workspace
+**.sublime-project
+**.sublime-workspace
 .idea
 
 # Random Trash
@@ -14,14 +14,13 @@ nbproject
 *~
 core
 vgcore.*
-*.orig
-*.directory
-*.patch
+**.orig
+**.directory
+**.patch
 .tags*
 cscope.*
 __pycache__
 *.pyc
-.DS_Store
 
 # ctags and ID database
 tags
@@ -29,17 +28,13 @@ ID
 
 # targets
 jerry-targetjs.h
-targets/mbed/libjerry
-targets/mbed/build
-targets/mbed/yotta_modules
-targets/mbed/yotta_targets
+targets/mbedk64f/libjerry
+targets/mbedk64f/build
+targets/mbedk64f/yotta_modules
+targets/mbedk64f/yotta_targets
 .output
 targets/esp8266/output.map
 targets/esp8266/libs
 
 # Generated documentation
 docs/doxygen
-
-# Tests
-tests/test262/
-tests/unit-doc/*.c

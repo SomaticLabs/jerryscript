@@ -105,7 +105,7 @@ search_char_in_interval_array (ecma_char_t c,               /**< code unit */
  * Check if specified character is one of the Format-Control characters
  *
  * @return true - if the character is one of characters, listed in ECMA-262 v5, Table 1,
- *         false - otherwise
+ *         false - otherwise.
  */
 bool
 lit_char_is_format_control (ecma_char_t c) /**< code unit */
@@ -120,7 +120,7 @@ lit_char_is_format_control (ecma_char_t c) /**< code unit */
  * that fall into "Space, Separator" ("Zs") Unicode character category.
  *
  * @return true - if the character is one of characters, listed in ECMA-262 v5, Table 2,
- *         false - otherwise
+ *         false - otherwise.
  */
 bool
 lit_char_is_white_space (ecma_char_t c) /**< code unit */
@@ -136,11 +136,11 @@ lit_char_is_white_space (ecma_char_t c) /**< code unit */
   {
     return (c == LIT_CHAR_NBSP
             || c == LIT_CHAR_BOM
-            || (c >= lit_unicode_separator_char_interval_sps[0]
-                && c <= lit_unicode_separator_char_interval_sps[0] + lit_unicode_separator_char_interval_lengths[0])
+            || (c >= jerry_unicode_separator_char_interval_sps[0]
+                && c <= jerry_unicode_separator_char_interval_sps[0] + jerry_unicode_separator_char_interval_lengths[0])
             || search_char_in_char_array (c,
-                                          lit_unicode_separator_chars,
-                                          NUM_OF_ELEMENTS (lit_unicode_separator_chars)));
+                                          jerry_unicode_separator_chars,
+                                          NUM_OF_ELEMENTS (jerry_unicode_separator_chars)));
   }
 } /* lit_char_is_white_space */
 
@@ -148,7 +148,7 @@ lit_char_is_white_space (ecma_char_t c) /**< code unit */
  * Check if specified character is one of LineTerminator characters
  *
  * @return true - if the character is one of characters, listed in ECMA-262 v5, Table 3,
- *         false - otherwise
+ *         false - otherwise.
  */
 bool
 lit_char_is_line_terminator (ecma_char_t c) /**< code unit */
@@ -175,16 +175,16 @@ lit_char_is_line_terminator (ecma_char_t c) /**< code unit */
  *          ECMA-262 v5, 7.6
  *
  * @return true - if specified character falls into one of the listed categories,
- *         false - otherwise
+ *         false - otherwise.
  */
 static bool
 lit_char_is_unicode_letter (ecma_char_t c) /**< code unit */
 {
   return (search_char_in_interval_array (c,
-                                         lit_unicode_letter_interval_sps,
-                                         lit_unicode_letter_interval_lengths,
-                                         NUM_OF_ELEMENTS (lit_unicode_letter_interval_sps))
-          || search_char_in_char_array (c, lit_unicode_letter_chars, NUM_OF_ELEMENTS (lit_unicode_letter_chars)));
+                                         jerry_unicode_letter_interval_sps,
+                                         jerry_unicode_letter_interval_lengths,
+                                         NUM_OF_ELEMENTS (jerry_unicode_letter_interval_sps))
+          || search_char_in_char_array (c, jerry_unicode_letter_chars, NUM_OF_ELEMENTS (jerry_unicode_letter_chars)));
 } /* lit_char_is_unicode_letter */
 
 /**
@@ -199,18 +199,18 @@ lit_char_is_unicode_letter (ecma_char_t c) /**< code unit */
  *          ECMA-262 v5, 7.6
  *
  * @return true - if specified character falls into one of the listed categories,
- *         false - otherwise
+ *         false - otherwise.
  */
 static bool
 lit_char_is_unicode_non_letter_ident_part (ecma_char_t c) /**< code unit */
 {
   return (search_char_in_interval_array (c,
-                                         lit_unicode_non_letter_ident_part_interval_sps,
-                                         lit_unicode_non_letter_ident_part_interval_lengths,
-                                         NUM_OF_ELEMENTS (lit_unicode_non_letter_ident_part_interval_sps))
+                                         jerry_unicode_non_letter_ident_part_interval_sps,
+                                         jerry_unicode_non_letter_ident_part_interval_lengths,
+                                         NUM_OF_ELEMENTS (jerry_unicode_non_letter_ident_part_interval_sps))
           || search_char_in_char_array (c,
-                                        lit_unicode_non_letter_ident_part_chars,
-                                        NUM_OF_ELEMENTS (lit_unicode_non_letter_ident_part_chars)));
+                                        jerry_unicode_non_letter_ident_part_chars,
+                                        NUM_OF_ELEMENTS (jerry_unicode_non_letter_ident_part_chars)));
 } /* lit_char_is_unicode_non_letter_ident_part */
 
 /**
@@ -224,14 +224,6 @@ lit_char_is_identifier_start (const uint8_t *src_p) /**< pointer to a vaild UTF8
   if (*src_p <= LIT_UTF8_1_BYTE_CODE_POINT_MAX)
   {
     return lit_char_is_identifier_start_character (*src_p);
-  }
-
-  /* ECMAScript 2015 specification allows some code points in supplementary plane.
-   * However, we don't permit characters in supplementary characters as start of identifier.
-   */
-  if ((*src_p & LIT_UTF8_4_BYTE_MASK) == LIT_UTF8_4_BYTE_MARKER)
-  {
-    return false;
   }
 
   return lit_char_is_identifier_start_character (lit_utf8_peek_next (src_p));
@@ -268,14 +260,6 @@ lit_char_is_identifier_part (const uint8_t *src_p) /**< pointer to a vaild UTF8 
   if (*src_p <= LIT_UTF8_1_BYTE_CODE_POINT_MAX)
   {
     return lit_char_is_identifier_part_character (*src_p);
-  }
-
-  /* ECMAScript 2015 specification allows some code points in supplementary plane.
-   * However, we don't permit characters in supplementary characters as part of identifier.
-   */
-  if ((*src_p & LIT_UTF8_4_BYTE_MASK) == LIT_UTF8_4_BYTE_MARKER)
-  {
-    return false;
   }
 
   return lit_char_is_identifier_part_character (lit_utf8_peek_next (src_p));
@@ -473,7 +457,7 @@ lit_read_code_unit_from_hex (const lit_utf8_byte_t *buf_p, /**< buffer with char
  * See also: ECMA-262 v5, 15.10.2.6 (IsWordChar)
  *
  * @return true - if the character is a word character
- *         false - otherwise
+ *         false - otherwise.
  */
 bool
 lit_char_is_word_char (ecma_char_t c) /**< code unit */
@@ -497,8 +481,8 @@ search_in_bidirectional_conversion_tables (ecma_char_t character,        /**< co
                                            ecma_char_t *output_buffer_p, /**< [out] buffer for the result characters */
                                            bool is_lowercase)            /**< is lowercase conversion */
 {
-  /* 1, Check if the specified character is part of the lit_character_case_ranges table. */
-  int number_of_case_ranges = NUM_OF_ELEMENTS (lit_character_case_ranges);
+  /* 1, Check if the specified character is part of the jerry_character_case_ranges table. */
+  int number_of_case_ranges = NUM_OF_ELEMENTS (jerry_character_case_ranges);
   int conv_counter = 0;
 
   for (int i = 0; i < number_of_case_ranges; i++)
@@ -508,8 +492,8 @@ search_in_bidirectional_conversion_tables (ecma_char_t character,        /**< co
       conv_counter++;
     }
 
-    int range_length = lit_character_case_range_lengths[conv_counter];
-    ecma_char_t start_point = lit_character_case_ranges[i];
+    int range_length = jerry_character_case_range_lengths[conv_counter];
+    ecma_char_t start_point = jerry_character_case_ranges[i];
 
     if (start_point > character || character >= start_point + range_length)
     {
@@ -520,11 +504,11 @@ search_in_bidirectional_conversion_tables (ecma_char_t character,        /**< co
 
     if (i % 2 == 0)
     {
-      output_buffer_p[0] = is_lowercase ? (ecma_char_t) (lit_character_case_ranges[i + 1] + char_dist) : character;
+      output_buffer_p[0] = is_lowercase ? (ecma_char_t) (jerry_character_case_ranges[i + 1] + char_dist) : character;
     }
     else
     {
-      output_buffer_p[0] = is_lowercase ? character : (ecma_char_t) (lit_character_case_ranges[i - 1] + char_dist);
+      output_buffer_p[0] = is_lowercase ? character : (ecma_char_t) (jerry_character_case_ranges[i - 1] + char_dist);
     }
 
     return 1;
@@ -532,14 +516,14 @@ search_in_bidirectional_conversion_tables (ecma_char_t character,        /**< co
 
   /* 2, Check if the specified character is part of the character_pair_ranges table. */
   int bottom = 0;
-  int top = NUM_OF_ELEMENTS (lit_character_pair_ranges) - 1;
+  int top = NUM_OF_ELEMENTS (jerry_character_pair_ranges) - 1;
 
   while (bottom <= top)
   {
     int middle = (bottom + top) / 2;
-    ecma_char_t current_sp = lit_character_pair_ranges[middle];
+    ecma_char_t current_sp = jerry_character_pair_ranges[middle];
 
-    if (current_sp <= character && character < current_sp + lit_character_pair_range_lengths[middle])
+    if (current_sp <= character && character < current_sp + jerry_character_pair_range_lengths[middle])
     {
       int char_dist = character - current_sp;
 
@@ -566,22 +550,22 @@ search_in_bidirectional_conversion_tables (ecma_char_t character,        /**< co
   }
 
   /* 3, Check if the specified character is part of the character_pairs table. */
-  int number_of_character_pairs = NUM_OF_ELEMENTS (lit_character_pairs);
+  int number_of_character_pairs = NUM_OF_ELEMENTS (jerry_character_pairs);
 
   for (int i = 0; i < number_of_character_pairs; i++)
   {
-    if (character != lit_character_pairs[i])
+    if (character != jerry_character_pairs[i])
     {
       continue;
     }
 
     if (i % 2 == 0)
     {
-      output_buffer_p[0] = is_lowercase ? lit_character_pairs[i + 1] : character;
+      output_buffer_p[0] = is_lowercase ? jerry_character_pairs[i + 1] : character;
     }
     else
     {
-      output_buffer_p[0] = is_lowercase ? character : lit_character_pairs[i - 1];
+      output_buffer_p[0] = is_lowercase ? character : jerry_character_pairs[i - 1];
     }
 
     return 1;
@@ -692,24 +676,24 @@ lit_char_to_lower_case (ecma_char_t character, /**< input character value */
     return lowercase_sequence;
   }
 
-  int num_of_lowercase_ranges = NUM_OF_ELEMENTS (lit_lower_case_ranges);
+  int num_of_lowercase_ranges = NUM_OF_ELEMENTS (jerry_lower_case_ranges);
 
   for (int i = 0, j = 0; i < num_of_lowercase_ranges; i += 2, j++)
   {
-    int range_length = lit_lower_case_range_lengths[j] - 1;
-    ecma_char_t start_point = lit_lower_case_ranges[i];
+    int range_length = jerry_lower_case_range_lengths[j] - 1;
+    ecma_char_t start_point = jerry_lower_case_ranges[i];
 
     if (start_point <= character && character <= start_point + range_length)
     {
-      output_buffer_p[0] = (ecma_char_t) (lit_lower_case_ranges[i + 1] + (character - start_point));
+      output_buffer_p[0] = (ecma_char_t) (jerry_lower_case_ranges[i + 1] + (character - start_point));
       return 1;
     }
   }
 
   lowercase_sequence = search_in_conversion_table (character,
                                                    output_buffer_p,
-                                                   lit_lower_case_conversions,
-                                                   lit_lower_case_conversion_counters);
+                                                   jerry_lower_case_conversions,
+                                                   jerry_lower_case_conversion_counters);
 
   if (lowercase_sequence != 0)
   {
@@ -752,25 +736,25 @@ lit_char_to_upper_case (ecma_char_t character, /**< input character value */
     return uppercase_sequence;
   }
 
-  int num_of_upper_case_special_ranges = NUM_OF_ELEMENTS (lit_upper_case_special_ranges);
+  int num_of_upper_case_special_ranges = NUM_OF_ELEMENTS (jerry_upper_case_special_ranges);
 
   for (int i = 0, j = 0; i < num_of_upper_case_special_ranges; i += 3, j++)
   {
-    int range_length = lit_upper_case_special_range_lengths[j];
-    ecma_char_t start_point = lit_upper_case_special_ranges[i];
+    int range_length = jerry_upper_case_special_range_lengths[j];
+    ecma_char_t start_point = jerry_upper_case_special_ranges[i];
 
     if (start_point <= character && character <= start_point + range_length)
     {
-      output_buffer_p[0] = (ecma_char_t) (lit_upper_case_special_ranges[i + 1] + (character - start_point));
-      output_buffer_p[1] = (ecma_char_t) (lit_upper_case_special_ranges[i + 2]);
+      output_buffer_p[0] = (ecma_char_t) (jerry_upper_case_special_ranges[i + 1] + (character - start_point));
+      output_buffer_p[1] = (ecma_char_t) (jerry_upper_case_special_ranges[i + 2]);
       return 2;
     }
   }
 
   uppercase_sequence = search_in_conversion_table (character,
                                                    output_buffer_p,
-                                                   lit_upper_case_conversions,
-                                                   lit_upper_case_conversion_counters);
+                                                   jerry_upper_case_conversions,
+                                                   jerry_upper_case_conversion_counters);
 
   if (uppercase_sequence != 0)
   {

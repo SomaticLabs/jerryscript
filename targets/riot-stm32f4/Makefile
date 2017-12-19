@@ -37,14 +37,13 @@ CFLAGS += -DDEVELHELP
 # Change this to 0 show compiler invocation lines by default:
 QUIET ?= 1
 
-INCLUDES += -I$(JERRYDIR)/jerry-core/include -I$(JERRYDIR)/jerry-ext/include
+INCLUDES += -I$(JERRYDIR)/jerry-core/
 
 # Add the shell and some shell commands
 USEMODULE += shell
 USEMODULE += shell_commands
 
-# Add the jerry libs
-USEMODULE += libjerrycore libjerryport-minimal libjerryext
-
+# Add the jerry lib
+USEMODULE += libjerrycore
 
 include $(RIOTBASE)/Makefile.include

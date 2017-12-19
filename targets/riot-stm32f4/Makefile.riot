@@ -32,7 +32,6 @@ libjerry:
 	 -DENABLE_LTO=OFF \
 	 -DFEATURE_VALGRIND=OFF \
 	 -DCMAKE_TOOLCHAIN_FILE=cmake/toolchain_external.cmake \
-	 -DJERRY_LIBM=OFF \
 	 -DJERRY_LIBC=OFF \
 	 -DJERRY_CMDLINE=OFF \
 	 -DENABLE_ALL_IN_ONE=OFF \
@@ -42,11 +41,8 @@ libjerry:
 	 -DEXTERNAL_COMPILE_FLAGS="$(EXT_CFLAGS)" \
 	 -DMEM_HEAP_SIZE_KB=$(JERRYHEAP)
 
-	make -C$(BUILD_DIR) jerry-core jerry-port-default-minimal jerry-ext
+	make -C$(BUILD_DIR) jerry-core
 	cp $(BUILD_DIR)/lib/libjerry-core.a $(COPYTARGET)/libjerrycore.a
-	cp $(BUILD_DIR)/lib/libjerry-port-default-minimal.a $(COPYTARGET)/libjerryport-minimal.a
-	cp $(BUILD_DIR)/lib/libjerry-ext.a $(COPYTARGET)/libjerryext.a
-
 
 riot-jerry: libjerry
 	make -f ./targets/riot-stm32f4/Makefile
@@ -55,6 +51,6 @@ flash: libjerry
 	make -f ./targets/riot-stm32f4/Makefile flash
 
 clean:
+	rm -rf $(OUTPUT)
 	rm -rf $(COPYTARGET)
-	rm -rf $(BUILD_DIR)
 	make -f ./targets/riot-stm32f4/Makefile clean

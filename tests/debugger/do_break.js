@@ -12,40 +12,49 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-print("break test");
+print("first line of code");
+
+function f1()
+{
+	function f2()
+	{
+		return function f3() {
+			a = 4;
+			print("funciton f3");
+		};
+	}
+
+	x =
+	  6;
+}
+
+function f4() {
+	print("function f4");
+}
+
+function foo()
+{
+  print("function foo");
+  var tmp = 4;
+  f4();
+}
 
 print ("var cat");
 var cat = 'cat';
 
-function test(x)
+function test()
 {
-  function f() {
-    return 0;
-  }
-
-  function f() {
-    /* Again. */
-    return 1;
-  }
-
-  function f() {
-    /* And again. */
-    return 2;
-  }
-
-  print("function test");
-  var a = 3;
-  var b = 5, c = a + b;
-  global_var = f();
-  return c;
-}
-
-function f() {
-  /* And again. */
+	print("function test");
+	foo();
+	var a = 3;
+	var b = 5;
+	var c = a + b;
+	global_var = c;
+	return c;
 }
 
 var
-  x =
-    1;
+	x =
+	  1;
 
-test(x);
+test();
