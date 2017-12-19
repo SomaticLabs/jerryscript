@@ -110,6 +110,11 @@
     jmem_heap_free_block ((void *) utf8_ptr, utf8_str_size); \
   }
 
+/**
+ * Convert boolean to bitfield value.
+ */
+#define ECMA_BOOL_TO_BITFIELD(x) ((x) ? 1 : 0)
+
 /* ecma-helpers-value.c */
 bool ecma_is_value_direct (ecma_value_t value) __attr_const___;
 bool ecma_is_value_simple (ecma_value_t value) __attr_const___;
@@ -132,7 +137,6 @@ bool ecma_is_value_error_reference (ecma_value_t value) __attr_const___;
 
 void ecma_check_value_type_is_spec_defined (ecma_value_t value);
 
-ecma_value_t ecma_make_simple_value (const ecma_simple_value_t value) __attr_const___;
 ecma_value_t ecma_make_boolean_value (bool boolean_value) __attr_const___;
 ecma_value_t ecma_make_integer_value (ecma_integer_value_t integer_value) __attr_const___;
 ecma_value_t ecma_make_nan_value (void);
@@ -169,7 +173,12 @@ ecma_string_t *ecma_new_ecma_string_from_number (ecma_number_t num);
 ecma_string_t *ecma_new_ecma_string_from_magic_string_id (lit_magic_string_id_t id);
 ecma_string_t *ecma_new_ecma_string_from_magic_string_ex_id (lit_magic_string_ex_id_t id);
 ecma_string_t *ecma_new_ecma_length_string (void);
+ecma_string_t *ecma_append_chars_to_string (ecma_string_t *string1_p,
+                                            const lit_utf8_byte_t *cesu8_string2_p,
+                                            lit_utf8_size_t cesu8_string2_size,
+                                            lit_utf8_size_t cesu8_string2_length);
 ecma_string_t *ecma_concat_ecma_strings (ecma_string_t *string1_p, ecma_string_t *string2_p);
+ecma_string_t *ecma_append_magic_string_to_string (ecma_string_t *string1_p, lit_magic_string_id_t string2_id);
 void ecma_ref_ecma_string (ecma_string_t *string_p);
 void ecma_deref_ecma_string (ecma_string_t *string_p);
 ecma_number_t ecma_string_to_number (const ecma_string_t *str_p);
@@ -199,7 +208,6 @@ void ecma_string_to_utf8_bytes (const ecma_string_t *string_desc_p, lit_utf8_byt
                                 lit_utf8_size_t buffer_size);
 const lit_utf8_byte_t *ecma_string_raw_chars (const ecma_string_t *string_p, lit_utf8_size_t *size_p, bool *is_ascii_p);
 void ecma_init_ecma_string_from_uint32 (ecma_string_t *string_desc_p, uint32_t uint32_number);
-void ecma_init_ecma_length_string (ecma_string_t *string_desc_p);
 void ecma_init_ecma_magic_string (ecma_string_t *string_desc_p, lit_magic_string_id_t id);
 bool ecma_compare_ecma_string_to_magic_id (const ecma_string_t *string_p, lit_magic_string_id_t id);
 bool ecma_string_is_empty (const ecma_string_t *string_p);
@@ -243,13 +251,9 @@ ecma_number_t
 ecma_number_make_from_sign_mantissa_and_exponent (bool sign, uint64_t mantissa, int32_t exponent);
 ecma_number_t ecma_number_get_prev (ecma_number_t num);
 ecma_number_t ecma_number_get_next (ecma_number_t num);
-ecma_number_t ecma_number_negate (ecma_number_t num);
 ecma_number_t ecma_number_trunc (ecma_number_t num);
 ecma_number_t ecma_number_calc_remainder (ecma_number_t left_num, ecma_number_t right_num);
-ecma_number_t ecma_number_add (ecma_number_t left_num, ecma_number_t right_num);
-ecma_number_t ecma_number_substract (ecma_number_t left_num, ecma_number_t right_num);
-ecma_number_t ecma_number_multiply (ecma_number_t left_num, ecma_number_t right_num);
-ecma_number_t ecma_number_divide (ecma_number_t left_num, ecma_number_t right_num);
+ecma_value_t ecma_integer_multiply (ecma_integer_value_t left_integer, ecma_integer_value_t right_integer);
 lit_utf8_size_t ecma_number_to_decimal (ecma_number_t num, lit_utf8_byte_t *out_digits_p, int32_t *out_decimal_exp_p);
 lit_utf8_size_t ecma_number_to_binary_floating_point_number (ecma_number_t num,
                                                              lit_utf8_byte_t *out_digits_p,

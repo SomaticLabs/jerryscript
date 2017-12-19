@@ -595,7 +595,7 @@ jerry_run_all_enqueued_jobs (void)
 #ifndef CONFIG_DISABLE_ES2015_PROMISE_BUILTIN
   return ecma_process_all_enqueued_jobs ();
 #else /* CONFIG_DISABLE_ES2015_PROMISE_BUILTIN */
-  return ecma_make_simple_value (ECMA_SIMPLE_VALUE_UNDEFINED);
+  return ECMA_VALUE_UNDEFINED;
 #endif /* CONFIG_DISABLE_ES2015_PROMISE_BUILTIN */
 } /* jerry_run_all_enqueued_jobs */
 
@@ -715,8 +715,6 @@ jerry_value_is_object (const jerry_value_t value) /**< api value */
   return ecma_is_value_object (jerry_get_arg_value (value));
 } /* jerry_value_is_object */
 
-#ifndef CONFIG_DISABLE_ES2015_PROMISE_BUILTIN
-
 /**
  * Check if the specified value is promise.
  *
@@ -727,13 +725,15 @@ bool
 jerry_value_is_promise (const jerry_value_t value) /**< api value */
 {
   jerry_assert_api_available ();
-
+#ifndef CONFIG_DISABLE_ES2015_PROMISE_BUILTIN
   jerry_value_t promise = jerry_get_arg_value (value);
   return (ecma_is_value_object (promise)
           && ecma_is_promise (ecma_get_object_from_value (promise)));
-} /* jerry_value_is_promise */
-
+#else /* CONFIG_DISABLE_ES2015_PROMISE_BUILTIN */
+  JERRY_UNUSED (value);
+  return false;
 #endif /* !CONFIG_DISABLE_ES2015_PROMISE_BUILTIN */
+} /* jerry_value_is_promise */
 
 /**
  * Check if the specified value is string.
@@ -848,6 +848,20 @@ jerry_value_set_error_flag (jerry_value_t *value_p)
     *value_p = ecma_create_error_reference (*value_p);
   }
 } /* jerry_value_set_error_flag */
+
+/**
+ * If the input value is an error value, then return a new reference to its referenced value.
+ * Otherwise, return a new reference to the value itself.
+ *
+ * Note:
+ *      returned value must be freed with jerry_release_value, when it is no longer needed.
+ *
+ * @return the real value of the jerry_value
+ */
+jerry_value_t jerry_get_value_without_error_flag (jerry_value_t value) /**< api value */
+{
+  return jerry_acquire_value (jerry_get_arg_value (value));
+} /* jerry_get_value_without_error_flag */
 
 /**
  * Get boolean from the specified value.
@@ -1070,7 +1084,6 @@ jerry_create_boolean (bool value) /**< bool value from which a jerry_value_t wil
 {
   jerry_assert_api_available ();
 
-  value = jerry_get_arg_value (value);
   return jerry_return (ecma_make_boolean_value (value));
 } /* jerry_create_boolean */
 
@@ -1205,7 +1218,7 @@ jerry_create_undefined (void)
 {
   jerry_assert_api_available ();
 
-  return ecma_make_simple_value (ECMA_SIMPLE_VALUE_UNDEFINED);
+  return ECMA_VALUE_UNDEFINED;
 } /* jerry_create_undefined */
 
 /**
@@ -1218,7 +1231,7 @@ jerry_create_null (void)
 {
   jerry_assert_api_available ();
 
-  return ecma_make_simple_value (ECMA_SIMPLE_VALUE_NULL);
+  return ECMA_VALUE_NULL;
 } /* jerry_create_null */
 
 /**
@@ -1252,7 +1265,7 @@ jerry_create_promise (void)
   jerry_assert_api_available ();
 
 #ifndef CONFIG_DISABLE_ES2015_PROMISE_BUILTIN
-  return ecma_op_create_promise_object (ecma_make_simple_value (ECMA_SIMPLE_VALUE_EMPTY), ECMA_PROMISE_EXECUTOR_EMPTY);
+  return ecma_op_create_promise_object (ECMA_VALUE_EMPTY, ECMA_PROMISE_EXECUTOR_EMPTY);
 #else /* !CONFIG_DISABLE_ES2015_PROMISE_BUILTIN */
   return jerry_throw (ecma_raise_type_error (ECMA_ERR_MSG ("Promise not supported.")));
 #endif /* CONFIG_DISABLE_ES2015_PROMISE_BUILTIN */
@@ -1345,14 +1358,10 @@ jerry_get_array_length (const jerry_value_t value)
     return 0;
   }
 
-  jerry_length_t length = 0;
-  ecma_string_t magic_string_length;
-  ecma_init_ecma_length_string (&magic_string_length);
+  ecma_value_t len_value = ecma_op_object_get_by_magic_id (ecma_get_object_from_value (array),
+                                                           LIT_MAGIC_STRING_LENGTH);
 
-  ecma_value_t len_value = ecma_op_object_get (ecma_get_object_from_value (array),
-                                               &magic_string_length);
-
-  length = ecma_number_to_uint32 (ecma_get_number_from_value (len_value));
+  jerry_length_t length = ecma_number_to_uint32 (ecma_get_number_from_value (len_value));
   ecma_free_value (len_value);
 
   return length;
@@ -1833,7 +1842,7 @@ void
 jerry_init_property_descriptor_fields (jerry_property_descriptor_t *prop_desc_p) /**< [out] property descriptor */
 {
   prop_desc_p->is_value_defined = false;
-  prop_desc_p->value = ecma_make_simple_value (ECMA_SIMPLE_VALUE_UNDEFINED);
+  prop_desc_p->value = ECMA_VALUE_UNDEFINED;
   prop_desc_p->is_writable_defined = false;
   prop_desc_p->is_writable = false;
   prop_desc_p->is_enumerable_defined = false;
@@ -1841,9 +1850,9 @@ jerry_init_property_descriptor_fields (jerry_property_descriptor_t *prop_desc_p)
   prop_desc_p->is_configurable_defined = false;
   prop_desc_p->is_configurable = false;
   prop_desc_p->is_get_defined = false;
-  prop_desc_p->getter = ecma_make_simple_value (ECMA_SIMPLE_VALUE_UNDEFINED);
+  prop_desc_p->getter = ECMA_VALUE_UNDEFINED;
   prop_desc_p->is_set_defined = false;
-  prop_desc_p->setter = ecma_make_simple_value (ECMA_SIMPLE_VALUE_UNDEFINED);
+  prop_desc_p->setter = ECMA_VALUE_UNDEFINED;
 } /* jerry_init_property_descriptor_fields */
 
 /**
@@ -1879,14 +1888,16 @@ jerry_define_own_property (const jerry_value_t obj_val, /**< object value */
 
   ecma_property_descriptor_t prop_desc = ecma_make_empty_property_descriptor ();
 
-  prop_desc.is_enumerable_defined = prop_desc_p->is_enumerable_defined;
-  prop_desc.is_enumerable = prop_desc_p->is_enumerable_defined ? prop_desc_p->is_enumerable : false;
+  prop_desc.is_enumerable_defined = ECMA_BOOL_TO_BITFIELD (prop_desc_p->is_enumerable_defined);
+  prop_desc.is_enumerable = ECMA_BOOL_TO_BITFIELD (prop_desc_p->is_enumerable_defined ? prop_desc_p->is_enumerable
+                                                                                      : false);
 
-  prop_desc.is_configurable_defined = prop_desc_p->is_configurable_defined;
-  prop_desc.is_configurable = prop_desc_p->is_configurable_defined ? prop_desc_p->is_configurable : false;
+  prop_desc.is_configurable_defined = ECMA_BOOL_TO_BITFIELD (prop_desc_p->is_configurable_defined);
+  prop_desc.is_configurable = ECMA_BOOL_TO_BITFIELD (prop_desc_p->is_configurable_defined ? prop_desc_p->is_configurable
+                                                                                          : false);
 
   /* Copy data property info. */
-  prop_desc.is_value_defined = prop_desc_p->is_value_defined;
+  prop_desc.is_value_defined = ECMA_BOOL_TO_BITFIELD (prop_desc_p->is_value_defined);
 
   if (prop_desc_p->is_value_defined)
   {
@@ -1898,8 +1909,9 @@ jerry_define_own_property (const jerry_value_t obj_val, /**< object value */
     prop_desc.value = prop_desc_p->value;
   }
 
-  prop_desc.is_writable_defined = prop_desc_p->is_writable_defined;
-  prop_desc.is_writable = prop_desc_p->is_writable_defined ? prop_desc_p->is_writable : false;
+  prop_desc.is_writable_defined = ECMA_BOOL_TO_BITFIELD (prop_desc_p->is_writable_defined);
+  prop_desc.is_writable = ECMA_BOOL_TO_BITFIELD (prop_desc_p->is_writable_defined ? prop_desc_p->is_writable
+                                                                                  : false);
 
   /* Copy accessor property info. */
   if (prop_desc_p->is_get_defined)
@@ -1991,9 +2003,9 @@ jerry_get_own_property_descriptor (const jerry_value_t  obj_val, /**< object val
   prop_desc_p->is_get_defined = prop_desc.is_get_defined;
   prop_desc_p->is_set_defined = prop_desc.is_set_defined;
 
-  prop_desc_p->value = ecma_make_simple_value (ECMA_SIMPLE_VALUE_UNDEFINED);
-  prop_desc_p->getter = ecma_make_simple_value (ECMA_SIMPLE_VALUE_UNDEFINED);
-  prop_desc_p->setter = ecma_make_simple_value (ECMA_SIMPLE_VALUE_UNDEFINED);
+  prop_desc_p->value = ECMA_VALUE_UNDEFINED;
+  prop_desc_p->getter = ECMA_VALUE_UNDEFINED;
+  prop_desc_p->setter = ECMA_VALUE_UNDEFINED;
 
   if (prop_desc.is_value_defined)
   {
@@ -2008,7 +2020,7 @@ jerry_get_own_property_descriptor (const jerry_value_t  obj_val, /**< object val
     }
     else
     {
-      prop_desc_p->getter = ecma_make_simple_value (ECMA_SIMPLE_VALUE_NULL);
+      prop_desc_p->getter = ECMA_VALUE_NULL;
     }
   }
 
@@ -2020,7 +2032,7 @@ jerry_get_own_property_descriptor (const jerry_value_t  obj_val, /**< object val
     }
     else
     {
-      prop_desc_p->setter = ecma_make_simple_value (ECMA_SIMPLE_VALUE_NULL);
+      prop_desc_p->setter = ECMA_VALUE_NULL;
     }
   }
 
@@ -2147,7 +2159,7 @@ jerry_construct_object (const jerry_value_t func_obj_val, /**< function object t
 
   if (jerry_value_is_constructor (func_obj_val))
   {
-    ecma_value_t this_val = ecma_make_simple_value (ECMA_SIMPLE_VALUE_UNDEFINED);
+    ecma_value_t this_val = ECMA_VALUE_UNDEFINED;
     return jerry_invoke_function (true, func_obj_val, this_val, args_p, args_count);
   }
 
@@ -2200,7 +2212,7 @@ jerry_get_prototype (const jerry_value_t obj_val) /**< object value */
 
   if (proto_obj_p == NULL)
   {
-    return ecma_make_simple_value (ECMA_SIMPLE_VALUE_NULL);
+    return ECMA_VALUE_NULL;
   }
 
   return ecma_make_object_value (proto_obj_p);
@@ -2237,7 +2249,7 @@ jerry_set_prototype (const jerry_value_t obj_val, /**< object value */
                       ecma_get_object_from_value (proto_obj_val));
   }
 
-  return ecma_make_simple_value (ECMA_SIMPLE_VALUE_TRUE);
+  return ECMA_VALUE_TRUE;
 } /* jerry_set_prototype */
 
 /**
@@ -2412,7 +2424,7 @@ jerry_foreach_object_property (const jerry_value_t obj_val, /**< object value */
   ecma_collection_header_t *names_p = ecma_op_object_get_property_names (object_p, false, true, true);
   ecma_collection_iterator_init (&names_iter, names_p);
 
-  ecma_value_t property_value = ecma_make_simple_value (ECMA_SIMPLE_VALUE_EMPTY);
+  ecma_value_t property_value = ECMA_VALUE_EMPTY;
 
   bool continuous = true;
 
@@ -2461,21 +2473,13 @@ jerry_resolve_or_reject_promise (jerry_value_t promise, /**< the promise value *
     return jerry_throw (ecma_raise_type_error (ECMA_ERR_MSG (wrong_args_msg_p)));
   }
 
-  ecma_string_t str;
+  lit_magic_string_id_t prop_name = (is_resolve ? LIT_INTERNAL_MAGIC_STRING_RESOLVE_FUNCTION
+                                                : LIT_INTERNAL_MAGIC_STRING_REJECT_FUNCTION);
 
-  if (is_resolve)
-  {
-    ecma_init_ecma_magic_string (&str, LIT_INTERNAL_MAGIC_STRING_RESOLVE_FUNCTION);
-  }
-  else
-  {
-    ecma_init_ecma_magic_string (&str, LIT_INTERNAL_MAGIC_STRING_REJECT_FUNCTION);
-  }
-
-  ecma_value_t function = ecma_op_object_get (ecma_get_object_from_value (promise), &str);
+  ecma_value_t function = ecma_op_object_get_by_magic_id (ecma_get_object_from_value (promise), prop_name);
 
   ecma_value_t ret = ecma_op_function_call (ecma_get_object_from_value (function),
-                                            ecma_make_simple_value (ECMA_SIMPLE_VALUE_UNDEFINED),
+                                            ECMA_VALUE_UNDEFINED,
                                             &argument,
                                             1);
 

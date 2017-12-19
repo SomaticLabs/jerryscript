@@ -22,6 +22,7 @@
 #include "ecma-helpers.h"
 #include "ecma-objects.h"
 #include "ecma-try-catch-macro.h"
+#include "lit-char-helpers.h"
 
 #ifndef CONFIG_DISABLE_REGEXP_BUILTIN
 #include "ecma-regexp-object.h"
@@ -62,7 +63,7 @@ ecma_builtin_regexp_prototype_compile (ecma_value_t this_arg, /**< this argument
                                        ecma_value_t pattern_arg, /**< pattern or RegExp object */
                                        ecma_value_t flags_arg) /**< flags */
 {
-  ecma_value_t ret_value = ecma_make_simple_value (ECMA_SIMPLE_VALUE_EMPTY);
+  ecma_value_t ret_value = ECMA_VALUE_EMPTY;
 
   if (!ecma_is_value_object (this_arg)
       || !ecma_object_class_is (ecma_get_object_from_value (this_arg), LIT_MAGIC_STRING_REGEXP_UL))
@@ -152,7 +153,7 @@ ecma_builtin_regexp_prototype_compile (ecma_value_t this_arg, /**< this argument
 
         re_initialize_props (this_obj_p, pattern_string_p, flags);
 
-        ret_value = ecma_make_simple_value (ECMA_SIMPLE_VALUE_UNDEFINED);
+        ret_value = ECMA_VALUE_UNDEFINED;
 
         ECMA_FINALIZE (obj_this);
       }
@@ -222,7 +223,7 @@ ecma_builtin_regexp_prototype_compile (ecma_value_t this_arg, /**< this argument
 
         ECMA_SET_INTERNAL_VALUE_POINTER (*bc_prop_p, new_bc_p);
         re_initialize_props (this_obj_p, pattern_string_p, flags);
-        ret_value = ecma_make_simple_value (ECMA_SIMPLE_VALUE_UNDEFINED);
+        ret_value = ECMA_VALUE_UNDEFINED;
 
         ECMA_FINALIZE (bc_dummy);
 
@@ -256,7 +257,7 @@ static ecma_value_t
 ecma_builtin_regexp_prototype_exec (ecma_value_t this_arg, /**< this argument */
                                     ecma_value_t arg) /**< routine's argument */
 {
-  ecma_value_t ret_value = ecma_make_simple_value (ECMA_SIMPLE_VALUE_EMPTY);
+  ecma_value_t ret_value = ECMA_VALUE_EMPTY;
 
   if (!ecma_is_value_object (this_arg)
       || !ecma_object_class_is (ecma_get_object_from_value (this_arg), LIT_MAGIC_STRING_REGEXP_UL))
@@ -320,7 +321,7 @@ static ecma_value_t
 ecma_builtin_regexp_prototype_test (ecma_value_t this_arg, /**< this argument */
                                     ecma_value_t arg) /**< routine's argument */
 {
-  ecma_value_t ret_value = ecma_make_simple_value (ECMA_SIMPLE_VALUE_EMPTY);
+  ecma_value_t ret_value = ECMA_VALUE_EMPTY;
 
   ECMA_TRY_CATCH (match_value,
                   ecma_builtin_regexp_prototype_exec (this_arg, arg),
@@ -345,7 +346,7 @@ ecma_builtin_regexp_prototype_test (ecma_value_t this_arg, /**< this argument */
 static ecma_value_t
 ecma_builtin_regexp_prototype_to_string (ecma_value_t this_arg) /**< this argument */
 {
-  ecma_value_t ret_value = ecma_make_simple_value (ECMA_SIMPLE_VALUE_EMPTY);
+  ecma_value_t ret_value = ECMA_VALUE_EMPTY;
 
   if (!ecma_is_value_object (this_arg)
       || !ecma_object_class_is (ecma_get_object_from_value (this_arg), LIT_MAGIC_STRING_REGEXP_UL))
@@ -365,15 +366,15 @@ ecma_builtin_regexp_prototype_to_string (ecma_value_t this_arg) /**< this argume
     ecma_value_t source_value = ecma_op_object_get_own_data_prop (obj_p, magic_string_p);
     ecma_deref_ecma_string (magic_string_p);
 
-    ecma_string_t *src_sep_str_p = ecma_get_magic_string (LIT_MAGIC_STRING_SLASH_CHAR);
+    ecma_string_t *output_str_p = ecma_get_magic_string (LIT_MAGIC_STRING_SLASH_CHAR);
     ecma_string_t *source_str_p = ecma_get_string_from_value (source_value);
-    ecma_string_t *output_str_p = ecma_concat_ecma_strings (src_sep_str_p, source_str_p);
+    output_str_p = ecma_concat_ecma_strings (output_str_p, source_str_p);
     ecma_deref_ecma_string (source_str_p);
 
-    ecma_string_t *concat_p = ecma_concat_ecma_strings (output_str_p, src_sep_str_p);
-    ecma_deref_ecma_string (src_sep_str_p);
-    ecma_deref_ecma_string (output_str_p);
-    output_str_p = concat_p;
+    lit_utf8_byte_t flags[4];
+    lit_utf8_byte_t *flags_p = flags;
+
+    *flags_p++ = LIT_CHAR_SLASH;
 
     /* Check the global flag */
     magic_string_p = ecma_get_magic_string (LIT_MAGIC_STRING_GLOBAL);
@@ -384,11 +385,7 @@ ecma_builtin_regexp_prototype_to_string (ecma_value_t this_arg) /**< this argume
 
     if (ecma_is_value_true (global_value))
     {
-      ecma_string_t *g_flag_str_p = ecma_get_magic_string (LIT_MAGIC_STRING_G_CHAR);
-      concat_p = ecma_concat_ecma_strings (output_str_p, g_flag_str_p);
-      ecma_deref_ecma_string (output_str_p);
-      ecma_deref_ecma_string (g_flag_str_p);
-      output_str_p = concat_p;
+      *flags_p++ = LIT_CHAR_LOWERCASE_G;
     }
 
     /* Check the ignoreCase flag */
@@ -400,11 +397,7 @@ ecma_builtin_regexp_prototype_to_string (ecma_value_t this_arg) /**< this argume
 
     if (ecma_is_value_true (ignore_case_value))
     {
-      ecma_string_t *ic_flag_str_p = ecma_get_magic_string (LIT_MAGIC_STRING_I_CHAR);
-      concat_p = ecma_concat_ecma_strings (output_str_p, ic_flag_str_p);
-      ecma_deref_ecma_string (output_str_p);
-      ecma_deref_ecma_string (ic_flag_str_p);
-      output_str_p = concat_p;
+      *flags_p++ = LIT_CHAR_LOWERCASE_I;
     }
 
     /* Check the multiline flag */
@@ -416,12 +409,11 @@ ecma_builtin_regexp_prototype_to_string (ecma_value_t this_arg) /**< this argume
 
     if (ecma_is_value_true (multiline_value))
     {
-      ecma_string_t *m_flag_str_p = ecma_get_magic_string (LIT_MAGIC_STRING_M_CHAR);
-      concat_p = ecma_concat_ecma_strings (output_str_p, m_flag_str_p);
-      ecma_deref_ecma_string (output_str_p);
-      ecma_deref_ecma_string (m_flag_str_p);
-      output_str_p = concat_p;
+      *flags_p++ = LIT_CHAR_LOWERCASE_M;
     }
+
+    lit_utf8_size_t size = (lit_utf8_size_t) (flags_p - flags);
+    output_str_p = ecma_append_chars_to_string (output_str_p, flags, size, size);
 
     ret_value = ecma_make_string_value (output_str_p);
 

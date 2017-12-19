@@ -379,7 +379,7 @@ ecma_op_typedarray_from (ecma_value_t items_val, /**< the source array-like obje
                          uint8_t element_size_shift, /**< the size shift of the element length */
                          lit_magic_string_id_t class_id) /**< class name of the typedarray */
 {
-  ecma_value_t ret_value = ecma_make_simple_value (ECMA_SIMPLE_VALUE_EMPTY);
+  ecma_value_t ret_value = ECMA_VALUE_EMPTY;
 
   /* 3 */
   JERRY_ASSERT (ecma_op_is_callable (map_fn_val) || ecma_is_value_undefined (map_fn_val));
@@ -398,11 +398,8 @@ ecma_op_typedarray_from (ecma_value_t items_val, /**< the source array-like obje
   ecma_object_t *arraylike_object_p = ecma_get_object_from_value (arraylike_object_val);
 
   /* 12 */
-  ecma_string_t magic_string_length;
-  ecma_init_ecma_length_string (&magic_string_length);
-
   ECMA_TRY_CATCH (len_value,
-                  ecma_op_object_get (arraylike_object_p, &magic_string_length),
+                  ecma_op_object_get_by_magic_id (arraylike_object_p, LIT_MAGIC_STRING_LENGTH),
                   ret_value);
 
   ECMA_OP_TO_NUMBER_TRY_CATCH (len_number, len_value, ret_value);
@@ -417,65 +414,67 @@ ecma_op_typedarray_from (ecma_value_t items_val, /**< the source array-like obje
 
   if (ECMA_IS_VALUE_ERROR (new_typedarray))
   {
-    ret_value = ecma_copy_value (new_typedarray);
-  }
-
-  ecma_object_t *new_typedarray_p = ecma_get_object_from_value (new_typedarray);
-
-  /* 17 */
-  ecma_value_t current_index;
-
-  for (uint32_t index = 0; index < len && ecma_is_value_empty (ret_value); index++)
-  {
-    /* 17.a */
-    ecma_string_t *index_str_p = ecma_new_ecma_string_from_uint32 (index);
-
-    /* 17.b */
-    ECMA_TRY_CATCH (current_value, ecma_op_object_find (arraylike_object_p, index_str_p), ret_value);
-
-    if (ecma_is_value_found (current_value))
-    {
-      if (func_object_p != NULL)
-      {
-        /* 17.d 17.f */
-        current_index = ecma_make_uint32_value (index);
-        ecma_value_t call_args[] = { current_value, current_index};
-
-        ECMA_TRY_CATCH (mapped_value, ecma_op_function_call (func_object_p, this_val, call_args, 2), ret_value);
-
-        bool set_status = ecma_op_typedarray_set_index_prop (new_typedarray_p, index, mapped_value);
-
-        if (!set_status)
-        {
-          ret_value = ecma_raise_type_error (ECMA_ERR_MSG ("Invalid argument type."));;
-        }
-
-        ECMA_FINALIZE (mapped_value);
-      }
-      else
-      {
-        /* 17.e 17.f */
-        bool set_status = ecma_op_typedarray_set_index_prop (new_typedarray_p, index, current_value);
-
-        if (!set_status)
-        {
-          ret_value = ecma_raise_type_error (ECMA_ERR_MSG ("Invalid argument type."));;
-        }
-      }
-    }
-
-    ECMA_FINALIZE (current_value);
-
-    ecma_deref_ecma_string (index_str_p);
-  }
-
-  if (ecma_is_value_empty (ret_value))
-  {
-    ret_value = ecma_make_object_value (new_typedarray_p);
+    ret_value = new_typedarray;
   }
   else
   {
-    ecma_deref_object (new_typedarray_p);
+    ecma_object_t *new_typedarray_p = ecma_get_object_from_value (new_typedarray);
+
+    /* 17 */
+    ecma_value_t current_index;
+
+    for (uint32_t index = 0; index < len && ecma_is_value_empty (ret_value); index++)
+    {
+      /* 17.a */
+      ecma_string_t *index_str_p = ecma_new_ecma_string_from_uint32 (index);
+
+      /* 17.b */
+      ECMA_TRY_CATCH (current_value, ecma_op_object_find (arraylike_object_p, index_str_p), ret_value);
+
+      if (ecma_is_value_found (current_value))
+      {
+        if (func_object_p != NULL)
+        {
+          /* 17.d 17.f */
+          current_index = ecma_make_uint32_value (index);
+          ecma_value_t call_args[] = { current_value, current_index};
+
+          ECMA_TRY_CATCH (mapped_value, ecma_op_function_call (func_object_p, this_val, call_args, 2), ret_value);
+
+          bool set_status = ecma_op_typedarray_set_index_prop (new_typedarray_p, index, mapped_value);
+
+          if (!set_status)
+          {
+            ret_value = ecma_raise_type_error (ECMA_ERR_MSG ("Invalid argument type."));;
+          }
+
+          ECMA_FINALIZE (mapped_value);
+        }
+        else
+        {
+          /* 17.e 17.f */
+          bool set_status = ecma_op_typedarray_set_index_prop (new_typedarray_p, index, current_value);
+
+          if (!set_status)
+          {
+            ret_value = ecma_raise_type_error (ECMA_ERR_MSG ("Invalid argument type."));;
+          }
+        }
+      }
+
+      ECMA_FINALIZE (current_value);
+
+      ecma_deref_ecma_string (index_str_p);
+    }
+
+    if (ecma_is_value_empty (ret_value))
+    {
+      ret_value = ecma_make_object_value (new_typedarray_p);
+    }
+    else
+    {
+      ecma_deref_object (new_typedarray_p);
+    }
   }
 
   ECMA_OP_TO_NUMBER_FINALIZE (len_number);
@@ -597,7 +596,7 @@ ecma_op_create_typedarray (const ecma_value_t *arguments_list_p, /**< the arg li
 {
   JERRY_ASSERT (arguments_list_len == 0 || arguments_list_p != NULL);
 
-  ecma_value_t ret = ecma_make_simple_value (ECMA_SIMPLE_VALUE_EMPTY);
+  ecma_value_t ret = ECMA_VALUE_EMPTY;
 
   if (arguments_list_len == 0)
   {
@@ -646,10 +645,10 @@ ecma_op_create_typedarray (const ecma_value_t *arguments_list_p, /**< the arg li
       /* 22.2.1.5 */
       ecma_object_t *arraybuffer_p = ecma_get_object_from_value (arguments_list_p[0]);
       ecma_value_t arg2 = ((arguments_list_len > 1) ? arguments_list_p[1]
-                                                    : ecma_make_simple_value (ECMA_SIMPLE_VALUE_UNDEFINED));
+                                                    : ECMA_VALUE_UNDEFINED);
 
       ecma_value_t arg3 = ((arguments_list_len > 2) ? arguments_list_p[2]
-                                                    : ecma_make_simple_value (ECMA_SIMPLE_VALUE_UNDEFINED));
+                                                    : ECMA_VALUE_UNDEFINED);
 
       ECMA_OP_TO_NUMBER_TRY_CATCH (num2, arg2, ret);
 
@@ -719,7 +718,7 @@ ecma_op_create_typedarray (const ecma_value_t *arguments_list_p, /**< the arg li
     else
     {
       /* 22.2.1.4 */
-      ecma_value_t undef = ecma_make_simple_value (ECMA_SIMPLE_VALUE_UNDEFINED);
+      ecma_value_t undef = ECMA_VALUE_UNDEFINED;
       ret = ecma_op_typedarray_from (arguments_list_p[0],
                                      undef,
                                      undef,
@@ -801,7 +800,7 @@ ecma_op_typedarray_get_index_prop (ecma_object_t *obj_p, /**< a TypedArray objec
 
   if (index >= array_length)
   {
-    return ecma_make_simple_value (ECMA_SIMPLE_VALUE_UNDEFINED);
+    return ECMA_VALUE_UNDEFINED;
   }
 
   ecma_object_t *arraybuffer_p = ecma_typedarray_get_arraybuffer (obj_p);
@@ -879,7 +878,7 @@ ecma_op_typedarray_set_index_prop (ecma_object_t *obj_p, /**< a TypedArray objec
     return false;
   }
 
-  ecma_value_t error = ecma_make_simple_value (ECMA_SIMPLE_VALUE_EMPTY);
+  ecma_value_t error = ECMA_VALUE_EMPTY;
 
   ECMA_OP_TO_NUMBER_TRY_CATCH (value_num, value, error);
 
