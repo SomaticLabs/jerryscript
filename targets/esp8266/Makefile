@@ -40,15 +40,7 @@ SPECIAL_MKTARGETS=$(APP_MKTARGETS)
 SUBDIRS= user
 endif # } PDIR
 
-# path to the JERRYSCRIPT directory
-JERRYDIR ?= $(CURDIR)/../../..
-
 LDDIR = $(SDK_PATH)/ld
-
-#############################################################
-# JerryScript requires a modified linker script with specified alignments
-# 	so we use it instead of the original one from SDK.
-JERRY_LD_FILE = $(CURDIR)/ld/eagle.app.v6.ld
 
 CCFLAGS += -Os
 #CCFLAGS += -O0
@@ -60,7 +52,7 @@ TARGET_LDFLAGS =					\
 	--text-section-literals
 
 ifeq ($(FLAVOR),debug)
-	TARGET_LDFLAGS += -O0 -g
+	TARGET_LDFLAGS += -O0
 endif
 
 ifeq ($(FLAVOR),release)
@@ -68,53 +60,45 @@ ifeq ($(FLAVOR),release)
 endif
 
 COMPONENTS_eagle.app.v6 =				\
-	user/libuser.a
+	user/libuser.a					\
+
 
 LINKFLAGS_eagle.app.v6 =				\
 	-L$(SDK_PATH)/lib				\
 	-Wl,--gc-sections				\
 	-Wl,-Map,output.map				\
 	-nostdlib					\
-	-T$(JERRY_LD_FILE)				\
+	-T$(LD_FILE)					\
 	-Wl,--no-check-sections				\
 	-u call_user_start				\
 	-Wl,-static					\
 	-Wl,--start-group				\
-	-lcirom						\
-	-lcrypto					\
-	-lespconn					\
-	-lespnow					\
-	-lfreertos					\
+	-lminic						\
 	-lgcc						\
 	-lhal						\
-	-ljson						\
-	-llwip						\
-	-ldriver					\
-	-lmain						\
-	-lmesh						\
-	-lmirom						\
-	-lnet80211					\
-	-lnopoll					\
 	-lphy						\
 	-lpp						\
-	-lpwm						\
-	-lsmartconfig					\
-	-lspiffs					\
-	-lssl						\
+	-lnet80211					\
 	-lwpa						\
-	-lwps						\
+	-lmain						\
+	-lfreertos					\
+	-llwip						\
 	-L./libs					\
-	-ljerry-core					\
-	-ljerry-libm					\
+	-ljerrycore					\
+	-ljerryentry					\
+	-ljerrylibm					\
 	$(DEP_LIBS_eagle.app.v6)			\
+	./libs/lib_a-setjmp.o				\
 	-Wl,--end-group
 
+
 DEPENDS_eagle.app.v6 =					\
-	$(JERRY_LD_FILE)				\
+	$(LD_FILE)					\
 	$(LDDIR)/eagle.rom.addr.v6.ld			\
-	./include/jerry-targetjs.h			\
-	./libs/libjerry-core.a				\
-	./libs/libjerry-libm.a
+	./source/jerry-targetjs.h			\
+	./libs/libjerrylibm.a				\
+	./libs/libjerrycore.a				\
+	./libs/libjerryentry.a
 
 
 #############################################################
@@ -154,7 +138,6 @@ DDEFINES += \
 # Required for each makefile to inherit from the parent
 #
 
-INCLUDES := -I $(JERRYDIR)/jerry-core/include
 INCLUDES := $(INCLUDES) -I $(PDIR)include -I $(PDIR)source
 sinclude $(SDK_PATH)/Makefile
 

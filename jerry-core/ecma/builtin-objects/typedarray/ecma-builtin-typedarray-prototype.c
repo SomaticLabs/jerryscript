@@ -178,7 +178,7 @@ ecma_builtin_typedarray_prototype_exec_routine (ecma_value_t this_arg, /**< this
   ecma_object_t *obj_p = ecma_get_object_from_value (this_arg);
   uint32_t len = ecma_typedarray_get_length (obj_p);
   ecma_object_t *func_object_p = ecma_get_object_from_value (cb_func_val);
-  ecma_value_t ret_value = ECMA_VALUE_EMPTY;
+  ecma_value_t ret_value = ecma_make_simple_value (ECMA_SIMPLE_VALUE_EMPTY);
 
   for (uint32_t index = 0; index < len && ecma_is_value_empty (ret_value); index++)
   {
@@ -195,14 +195,14 @@ ecma_builtin_typedarray_prototype_exec_routine (ecma_value_t this_arg, /**< this
     {
       if (!ecma_op_to_boolean (call_value))
       {
-        ret_value = ECMA_VALUE_FALSE;
+        ret_value = ecma_make_simple_value (ECMA_SIMPLE_VALUE_FALSE);
       }
     }
     else if (mode == TYPEDARRAY_ROUTINE_SOME)
     {
       if (ecma_op_to_boolean (call_value))
       {
-        ret_value = ECMA_VALUE_TRUE;
+        ret_value = ecma_make_simple_value (ECMA_SIMPLE_VALUE_TRUE);
       }
     }
 
@@ -216,15 +216,15 @@ ecma_builtin_typedarray_prototype_exec_routine (ecma_value_t this_arg, /**< this
   {
     if (mode == TYPEDARRAY_ROUTINE_EVERY)
     {
-      ret_value = ECMA_VALUE_TRUE;
+      ret_value = ecma_make_simple_value (ECMA_SIMPLE_VALUE_TRUE);
     }
     else if (mode == TYPEDARRAY_ROUTINE_SOME)
     {
-      ret_value = ECMA_VALUE_FALSE;
+      ret_value = ecma_make_simple_value (ECMA_SIMPLE_VALUE_FALSE);
     }
     else
     {
-      ret_value = ECMA_VALUE_UNDEFINED;
+      ret_value = ecma_make_simple_value (ECMA_SIMPLE_VALUE_UNDEFINED);
     }
   }
 
@@ -318,7 +318,7 @@ ecma_builtin_typedarray_prototype_map (ecma_value_t this_arg, /**< this argument
   ecma_object_t *obj_p = ecma_get_object_from_value (this_arg);
   uint32_t len = ecma_typedarray_get_length (obj_p);
   ecma_object_t *func_object_p = ecma_get_object_from_value (cb_func_val);
-  ecma_value_t ret_value = ECMA_VALUE_EMPTY;
+  ecma_value_t ret_value = ecma_make_simple_value (ECMA_SIMPLE_VALUE_EMPTY);
 
   ecma_value_t new_typedarray = ecma_op_create_typedarray_with_type_and_length (obj_p, len);
 
@@ -400,7 +400,7 @@ ecma_builtin_typedarray_prototype_reduce_with_direction (ecma_value_t this_arg, 
 
   JERRY_ASSERT (len > 0);
 
-  ecma_value_t accumulator = ECMA_VALUE_UNDEFINED;
+  ecma_value_t accumulator = ecma_make_simple_value (ECMA_SIMPLE_VALUE_UNDEFINED);
   uint32_t index = is_right ? (len - 1) : 0;
 
   if (ecma_is_value_undefined (initial_val))
@@ -444,7 +444,7 @@ ecma_builtin_typedarray_prototype_reduce_with_direction (ecma_value_t this_arg, 
     JERRY_ASSERT (ecma_is_value_number (get_value));
 
     ecma_value_t call_value = ecma_op_function_call (func_object_p,
-                                                     ECMA_VALUE_UNDEFINED,
+                                                     ecma_make_simple_value (ECMA_SIMPLE_VALUE_UNDEFINED),
                                                      call_args,
                                                      4);
 
@@ -552,7 +552,7 @@ ecma_builtin_typedarray_prototype_filter (ecma_value_t this_arg, /**< this argum
   uint8_t shift = ecma_typedarray_get_element_size_shift (obj_p);
   uint8_t element_size = (uint8_t) (1 << shift);
   ecma_object_t *func_object_p = ecma_get_object_from_value (cb_func_val);
-  ecma_value_t ret_value = ECMA_VALUE_EMPTY;
+  ecma_value_t ret_value = ecma_make_simple_value (ECMA_SIMPLE_VALUE_EMPTY);
 
   JMEM_DEFINE_LOCAL_ARRAY (pass_value_list_p, len * element_size, lit_utf8_byte_t);
 
@@ -674,7 +674,7 @@ ecma_builtin_typedarray_prototype_set (ecma_value_t this_arg, /**< this argument
   }
 
   /* 6.~ 8. targetOffset */
-  ecma_value_t ret_val = ECMA_VALUE_EMPTY;
+  ecma_value_t ret_val = ecma_make_simple_value (ECMA_SIMPLE_VALUE_EMPTY);
   ECMA_OP_TO_NUMBER_TRY_CATCH (target_offset_num, offset_val, ret_val);
   if (ecma_number_is_nan (target_offset_num))
   {
@@ -704,21 +704,18 @@ ecma_builtin_typedarray_prototype_set (ecma_value_t this_arg, /**< this argument
   ECMA_TRY_CATCH (source_obj, ecma_op_to_object (arr_val), ret_val);
 
   /* 18.~ 19. */
+  ecma_string_t length_str;
+  ecma_init_ecma_length_string (&length_str);
   ecma_object_t *source_obj_p = ecma_get_object_from_value (source_obj);
-
   ECMA_TRY_CATCH (source_length,
-                  ecma_op_object_get_by_magic_id (source_obj_p, LIT_MAGIC_STRING_LENGTH),
+                  ecma_op_object_get (source_obj_p, &length_str),
                   ret_val);
-
   ECMA_OP_TO_NUMBER_TRY_CATCH (source_length_num, source_length, ret_val);
-
   if (ecma_number_is_nan (source_length_num) || source_length_num <= 0)
   {
     source_length_num = 0;
   }
-
   uint32_t source_length_uint32 = ecma_number_to_uint32 (source_length_num);
-
   if ((ecma_number_t) source_length_uint32 != source_length_num)
   {
     return ecma_raise_range_error (ECMA_ERR_MSG ("Invalid source length"));
@@ -733,23 +730,17 @@ ecma_builtin_typedarray_prototype_set (ecma_value_t this_arg, /**< this argument
   /* 21.~ 25. */
   uint32_t target_byte_index = target_offset_uint32 * element_size;
   uint32_t k = 0;
-
   while (k < source_length_uint32 && ecma_is_value_empty (ret_val))
   {
     ecma_string_t k_str;
     ecma_init_ecma_string_from_uint32 (&k_str, k);
-
     ECMA_TRY_CATCH (elem,
                     ecma_op_object_get (source_obj_p, &k_str),
                     ret_val);
-
     ECMA_OP_TO_NUMBER_TRY_CATCH (elem_num, elem, ret_val);
-
     ecma_set_typedarray_element (target_buffer_p + target_byte_index, elem_num, target_class_id);
-
     ECMA_OP_TO_NUMBER_FINALIZE (elem_num);
     ECMA_FINALIZE (elem);
-
     k++;
     target_byte_index += element_size;
   }
@@ -761,7 +752,7 @@ ecma_builtin_typedarray_prototype_set (ecma_value_t this_arg, /**< this argument
 
   if (ecma_is_value_empty (ret_val))
   {
-    ret_val = ECMA_VALUE_UNDEFINED;
+    ret_val = ecma_make_simple_value (ECMA_SIMPLE_VALUE_UNDEFINED);
   }
   return ret_val;
 } /* ecma_builtin_typedarray_prototype_set */

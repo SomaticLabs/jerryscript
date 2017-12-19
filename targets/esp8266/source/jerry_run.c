@@ -16,42 +16,68 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#include "jerry-core/include/jerryscript.h"
 #include "jerry_extapi.h"
 #include "jerry_run.h"
 
-#include "jerryscript.h"
-#include "jerryscript-port.h"
 
 static const char* fn_sys_loop_name = "sysloop";
+jerry_value_t parsed_res;
 
-void js_entry ()
+
+/*---------------------------------------------------------------------------*/
+
+int js_entry (const char *source_p, const size_t source_size)
 {
-  srand ((unsigned) jerry_port_get_current_time ());
+  const jerry_char_t *jerry_src = (const jerry_char_t *) source_p;
+  int ret_code = 0; /* JERRY_COMPLETION_CODE_OK */
+  jerry_init_flag_t flags = JERRY_INIT_EMPTY;
 
-  jerry_init (JERRY_INIT_EMPTY);
+  jerry_init (flags);
+
   js_register_functions ();
+
+  parsed_res = jerry_parse ((jerry_char_t *) jerry_src, source_size, false);
+
+  if (jerry_value_has_error_flag (parsed_res))
+  {
+    printf ("Error: jerry_parse failed\r\n");
+    ret_code = JERRY_ERROR_SYNTAX;
+  }
+
+  return ret_code;
 }
 
 int js_eval (const char *source_p, const size_t source_size)
 {
-  jerry_value_t res = jerry_eval ((jerry_char_t *) source_p,
-                                  source_size,
-                                  false);
+  int status = 0;
+  jerry_value_t res;
+
+  res = jerry_eval ((jerry_char_t *) source_p,
+                           source_size,
+                           false);
   if (jerry_value_has_error_flag (res)) {
-    jerry_release_value (res);
-    return -1;
+	  status = -1;
   }
 
   jerry_release_value (res);
 
-  return 0;
+  return status;
 }
 
 int js_loop (uint32_t ticknow)
 {
-  jerry_value_t global_obj_val = jerry_get_global_object ();
-  jerry_value_t prop_name_val = jerry_create_string ((const jerry_char_t *) fn_sys_loop_name);
-  jerry_value_t sysloop_func = jerry_get_property (global_obj_val, prop_name_val);
+  jerry_value_t global_obj_val;
+  jerry_value_t sysloop_func;
+  jerry_value_t val_args[1];
+  uint16_t val_argv;
+  jerry_value_t res;
+  jerry_value_t prop_name_val;
+  int ret_code = 0;
+
+  global_obj_val = jerry_get_global_object ();
+  prop_name_val = jerry_create_string ((const jerry_char_t *) fn_sys_loop_name);
+  sysloop_func = jerry_get_property (global_obj_val, prop_name_val);
   jerry_release_value (prop_name_val);
 
   if (jerry_value_has_error_flag (sysloop_func)) {
@@ -68,29 +94,23 @@ int js_loop (uint32_t ticknow)
     return -2;
   }
 
-  jerry_value_t val_args[] = { jerry_create_number (ticknow) };
-  uint16_t val_argv = sizeof (val_args) / sizeof (jerry_value_t);
+  val_argv = 1;
+  val_args[0] = jerry_create_number (ticknow);
 
-  jerry_value_t res = jerry_call_function (sysloop_func,
-                                           global_obj_val,
-                                           val_args,
-                                           val_argv);
-
-  for (uint16_t i = 0; i < val_argv; i++) {
-    jerry_release_value (val_args[i]);
-  }
-
-  jerry_release_value (sysloop_func);
-  jerry_release_value (global_obj_val);
+  res = jerry_call_function (sysloop_func,
+                             global_obj_val,
+                             val_args,
+                             val_argv);
 
   if (jerry_value_has_error_flag (res)) {
-    jerry_release_value (res);
-    return -3;
+    ret_code = -3;
   }
 
   jerry_release_value (res);
+  jerry_release_value (sysloop_func);
+  jerry_release_value (global_obj_val);
 
-  return 0;
+  return ret_code;
 }
 
 void js_exit (void)

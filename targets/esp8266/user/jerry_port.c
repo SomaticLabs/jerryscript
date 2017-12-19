@@ -13,14 +13,12 @@
  * limitations under the License.
  */
 
-
+#include "esp_common.h"
 #include <stdio.h>
 #include <stdarg.h>
-#include <sys/time.h>
 
-#include "esp_common.h"
-
-#include "jerryscript-port.h"
+#include "jerry-core/include/jerryscript-port.h"
+int ets_putc (int);
 
 /**
  * Provide log message implementation for the engine.
@@ -34,49 +32,50 @@ jerry_port_log (jerry_log_level_t level, /**< log level */
 
   va_list args;
   va_start (args, format);
-  vfprintf (stderr, format, args);
+  /* TODO, uncomment when vprint link is ok */
+  /* vprintf (stderr, format, args); */
   va_end (args);
 } /* jerry_port_log */
 
-/**
- * Provide fatal message implementation for the engine.
- */
-void
-jerry_port_fatal (jerry_fatal_code_t code)
-{
-  jerry_port_log (JERRY_LOG_LEVEL_ERROR, "Jerry Fatal Error!\n");
-  while (true);
-} /* jerry_port_fatal */
 
-/**
- * Implementation of jerry_port_get_current_time.
- *
- * @return current timer's counter value in milliseconds
- */
-double
-jerry_port_get_current_time (void)
+/** exit - cause normal process termination  */
+void exit (int status)
 {
-  struct timeval tv;
-
-  if (gettimeofday (&tv, NULL) != 0)
+  while (true)
   {
-    return 0;
   }
+} /* exit */
 
-  return ((double) tv.tv_sec) * 1000.0 + ((double) tv.tv_usec) / 1000.0;
-} /* jerry_port_get_current_time */
+/** abort - cause abnormal process termination  */
+void abort (void)
+{
+  while (true)
+  {
+  }
+} /* abort */
 
 /**
- * Dummy function to get the time zone.
+ * fwrite
  *
- * @return true
+ * @return number of bytes written
  */
-bool
-jerry_port_get_time_zone (jerry_time_zone_t *tz_p)
+size_t
+fwrite (const void *ptr, /**< data to write */
+        size_t size, /**< size of elements to write */
+        size_t nmemb, /**< number of elements */
+        FILE *stream) /**< stream pointer */
 {
-  /* We live in UTC. */
-  tz_p->offset = 0;
-  tz_p->daylight_saving_time = 0;
+  return size * nmemb;
+} /* fwrite */
 
-  return true;
-} /* jerry_port_get_time_zone */
+/**
+ * This function can get the time as well as a timezone.
+ *
+ * @return 0 if success, -1 otherwise
+ */
+int
+gettimeofday (void *tp,  /**< struct timeval */
+              void *tzp) /**< struct timezone */
+{
+  return -1;
+} /* gettimeofday */

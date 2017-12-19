@@ -146,14 +146,9 @@ ecma_op_create_mutable_binding (ecma_object_t *lex_env_p, /**< lexical environme
     ecma_object_t *binding_obj_p = ecma_get_lex_env_binding_object (lex_env_p);
 
     ecma_value_t completion;
-    if (!ecma_get_object_extensible (binding_obj_p))
-    {
-      return ECMA_VALUE_EMPTY;
-    }
-
     completion = ecma_builtin_helper_def_prop (binding_obj_p,
                                                name_p,
-                                               ECMA_VALUE_UNDEFINED,
+                                               ecma_make_simple_value (ECMA_SIMPLE_VALUE_UNDEFINED),
                                                true, /* Writable */
                                                true, /* Enumerable */
                                                is_deletable, /* Configurable */
@@ -169,7 +164,7 @@ ecma_op_create_mutable_binding (ecma_object_t *lex_env_p, /**< lexical environme
     }
   }
 
-  return ECMA_VALUE_EMPTY;
+  return ecma_make_simple_value (ECMA_SIMPLE_VALUE_EMPTY);
 } /* ecma_op_create_mutable_binding */
 
 /**
@@ -228,7 +223,7 @@ ecma_op_set_mutable_binding (ecma_object_t *lex_env_p, /**< lexical environment 
     }
   }
 
-  return ECMA_VALUE_EMPTY;
+  return ecma_make_simple_value (ECMA_SIMPLE_VALUE_EMPTY);
 } /* ecma_op_set_mutable_binding */
 
 /**
@@ -271,7 +266,7 @@ ecma_op_get_binding_value (ecma_object_t *lex_env_p, /**< lexical environment */
       }
       else
       {
-        result = ECMA_VALUE_UNDEFINED;
+        result = ecma_make_simple_value (ECMA_SIMPLE_VALUE_UNDEFINED);
       }
     }
 
@@ -300,11 +295,11 @@ ecma_op_delete_binding (ecma_object_t *lex_env_p, /**< lexical environment */
   if (ecma_get_lex_env_type (lex_env_p) == ECMA_LEXICAL_ENVIRONMENT_DECLARATIVE)
   {
     ecma_property_t *prop_p = ecma_find_named_property (lex_env_p, name_p);
-    ecma_value_t ret_val;
+    ecma_simple_value_t ret_val;
 
     if (prop_p == NULL)
     {
-      ret_val = ECMA_VALUE_TRUE;
+      ret_val = ECMA_SIMPLE_VALUE_TRUE;
     }
     else
     {
@@ -312,17 +307,17 @@ ecma_op_delete_binding (ecma_object_t *lex_env_p, /**< lexical environment */
 
       if (!ecma_is_property_configurable (*prop_p))
       {
-        ret_val = ECMA_VALUE_FALSE;
+        ret_val = ECMA_SIMPLE_VALUE_FALSE;
       }
       else
       {
         ecma_delete_property (lex_env_p, ECMA_PROPERTY_VALUE_PTR (prop_p));
 
-        ret_val = ECMA_VALUE_TRUE;
+        ret_val = ECMA_SIMPLE_VALUE_TRUE;
       }
     }
 
-    return ret_val;
+    return ecma_make_simple_value (ret_val);
   }
   else
   {
@@ -351,7 +346,7 @@ ecma_op_implicit_this_value (ecma_object_t *lex_env_p) /**< lexical environment 
 
   if (ecma_get_lex_env_type (lex_env_p) == ECMA_LEXICAL_ENVIRONMENT_DECLARATIVE)
   {
-    return ECMA_VALUE_UNDEFINED;
+    return ecma_make_simple_value (ECMA_SIMPLE_VALUE_UNDEFINED);
   }
   else
   {
@@ -367,7 +362,7 @@ ecma_op_implicit_this_value (ecma_object_t *lex_env_p) /**< lexical environment 
     }
     else
     {
-      return ECMA_VALUE_UNDEFINED;
+      return ecma_make_simple_value (ECMA_SIMPLE_VALUE_UNDEFINED);
     }
   }
 } /* ecma_op_implicit_this_value */

@@ -269,13 +269,15 @@ ecma_op_function_has_instance (ecma_object_t *func_obj_p, /**< Function object *
 
   if (!ecma_is_value_object (value))
   {
-    return ECMA_VALUE_FALSE;
+    return ecma_make_simple_value (ECMA_SIMPLE_VALUE_FALSE);
   }
 
   ecma_object_t *v_obj_p = ecma_get_object_from_value (value);
 
-  ecma_value_t prototype_obj_value = ecma_op_object_get_by_magic_id (func_obj_p,
-                                                                     LIT_MAGIC_STRING_PROTOTYPE);
+  ecma_string_t prototype_magic_string;
+  ecma_init_ecma_magic_string (&prototype_magic_string, LIT_MAGIC_STRING_PROTOTYPE);
+
+  ecma_value_t prototype_obj_value = ecma_op_object_get (func_obj_p, &prototype_magic_string);
 
   if (ECMA_IS_VALUE_ERROR (prototype_obj_value))
   {
@@ -284,7 +286,6 @@ ecma_op_function_has_instance (ecma_object_t *func_obj_p, /**< Function object *
 
   if (!ecma_is_value_object (prototype_obj_value))
   {
-    ecma_free_value (prototype_obj_value);
     return ecma_raise_type_error (ECMA_ERR_MSG ("Object expected."));
   }
 
@@ -333,7 +334,7 @@ ecma_op_function_call (ecma_object_t *func_obj_p, /**< Function object */
                 && !ecma_is_lexical_environment (func_obj_p));
   JERRY_ASSERT (ecma_op_is_callable (ecma_make_object_value (func_obj_p)));
 
-  ecma_value_t ret_value = ECMA_VALUE_EMPTY;
+  ecma_value_t ret_value = ecma_make_simple_value (ECMA_SIMPLE_VALUE_EMPTY);
 
   if (ecma_get_object_type (func_obj_p) == ECMA_OBJECT_TYPE_FUNCTION)
   {
@@ -471,7 +472,7 @@ ecma_op_function_call (ecma_object_t *func_obj_p, /**< Function object */
     if (unlikely (ecma_is_value_error_reference (ret_value)))
     {
       JERRY_CONTEXT (error_value) = ecma_clear_error_reference (ret_value);
-      ret_value = ECMA_VALUE_ERROR;
+      ret_value = ecma_make_simple_value (ECMA_SIMPLE_VALUE_ERROR);
     }
   }
   else
@@ -555,12 +556,14 @@ ecma_op_function_construct_simple_or_external (ecma_object_t *func_obj_p, /**< F
   JERRY_ASSERT (ecma_get_object_type (func_obj_p) == ECMA_OBJECT_TYPE_FUNCTION
                 || ecma_get_object_type (func_obj_p) == ECMA_OBJECT_TYPE_EXTERNAL_FUNCTION);
 
-  ecma_value_t ret_value = ECMA_VALUE_EMPTY;
+  ecma_value_t ret_value = ecma_make_simple_value (ECMA_SIMPLE_VALUE_EMPTY);
+
+  ecma_string_t *prototype_magic_string_p = ecma_get_magic_string (LIT_MAGIC_STRING_PROTOTYPE);
 
   /* 5. */
   ECMA_TRY_CATCH (func_obj_prototype_prop_value,
-                  ecma_op_object_get_by_magic_id (func_obj_p,
-                                                  LIT_MAGIC_STRING_PROTOTYPE),
+                  ecma_op_object_get (func_obj_p,
+                                      prototype_magic_string_p),
                   ret_value);
 
   /* 1., 2., 4. */
@@ -617,6 +620,8 @@ ecma_op_function_construct_simple_or_external (ecma_object_t *func_obj_p, /**< F
 
   ECMA_FINALIZE (func_obj_prototype_prop_value);
 
+  ecma_deref_ecma_string (prototype_magic_string_p);
+
   return ret_value;
 } /* ecma_op_function_construct_simple_or_external */
 
@@ -638,7 +643,7 @@ ecma_op_function_construct (ecma_object_t *func_obj_p, /**< Function object */
                 && !ecma_is_lexical_environment (func_obj_p));
   JERRY_ASSERT (ecma_is_constructor (ecma_make_object_value (func_obj_p)));
 
-  ecma_value_t ret_value = ECMA_VALUE_EMPTY;
+  ecma_value_t ret_value = ecma_make_simple_value (ECMA_SIMPLE_VALUE_EMPTY);
 
   if (ecma_get_object_type (func_obj_p) == ECMA_OBJECT_TYPE_FUNCTION)
   {
@@ -725,7 +730,7 @@ ecma_op_function_construct (ecma_object_t *func_obj_p, /**< Function object */
 } /* ecma_op_function_construct */
 
 /**
- * Lazy instantiation of non-builtin ecma function object's properties
+ * Lazy instantation of non-builtin ecma function object's properties
  *
  * Warning:
  *         Only non-configurable properties could be instantiated lazily in this function,
@@ -778,23 +783,11 @@ ecma_op_function_try_to_lazy_instantiate_property (ecma_object_t *object_p, /**<
   if (ecma_compare_ecma_string_to_magic_id (property_name_p, LIT_MAGIC_STRING_CALLER)
       || ecma_compare_ecma_string_to_magic_id (property_name_p, LIT_MAGIC_STRING_ARGUMENTS))
   {
+    ecma_extended_object_t *ext_func_p = (ecma_extended_object_t *) object_p;
+
     const ecma_compiled_code_t *bytecode_data_p;
-#ifndef CONFIG_DISABLE_ES2015_ARROW_FUNCTION
-    if (ecma_get_object_type (object_p) == ECMA_OBJECT_TYPE_ARROW_FUNCTION)
-    {
-      ecma_arrow_function_t *arrow_func_p = (ecma_arrow_function_t *) object_p;
-      bytecode_data_p = ECMA_GET_NON_NULL_POINTER (const ecma_compiled_code_t,
-                                                   arrow_func_p->bytecode_cp);
-    }
-    else
-    {
-#endif /* CONFIG_DISABLE_ES2015_ARROW_FUNCTION */
-      ecma_extended_object_t *ext_func_p = (ecma_extended_object_t *) object_p;
-      bytecode_data_p = ECMA_GET_INTERNAL_VALUE_POINTER (const ecma_compiled_code_t,
-                                                         ext_func_p->u.function.bytecode_cp);
-#ifndef CONFIG_DISABLE_ES2015_ARROW_FUNCTION
-    }
-#endif /* CONFIG_DISABLE_ES2015_ARROW_FUNCTION */
+    bytecode_data_p = ECMA_GET_INTERNAL_VALUE_POINTER (const ecma_compiled_code_t,
+                                                       ext_func_p->u.function.bytecode_cp);
 
     if (bytecode_data_p->status_flags & CBC_CODE_FLAGS_STRICT_MODE)
     {
@@ -841,7 +834,7 @@ ecma_op_external_function_try_to_lazy_instantiate_property (ecma_object_t *objec
                                                               ECMA_PROPERTY_FLAG_WRITABLE,
                                                               &prototype_prop_p);
 
-    prototype_prop_value_p->value = ECMA_VALUE_UNDEFINED;
+    prototype_prop_value_p->value = ecma_make_simple_value (ECMA_SIMPLE_VALUE_UNDEFINED);
     return prototype_prop_p;
   }
 

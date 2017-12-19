@@ -13,6 +13,8 @@
  * limitations under the License.
  */
 
+#define _XOPEN_SOURCE 500 /* Required macro for sleep functions */
+
 #include "byte-code.h"
 #include "debugger.h"
 #include "ecma-builtin-helpers.h"
@@ -964,8 +966,12 @@ jerry_debugger_exception_object_to_string (ecma_value_t exception_obj_value) /**
   data[size] = LIT_CHAR_COLON;
   data[size + 1] = LIT_CHAR_SP;
 
-  return ecma_concat_ecma_strings (ecma_new_ecma_string_from_utf8 (data, size + 2),
-                                   ecma_get_string_from_value (prop_value_p->value));
+  ecma_string_t *type_string_p = ecma_new_ecma_string_from_utf8 (data, size + 2);
+
+  ecma_string_t *string_p = ecma_concat_ecma_strings (type_string_p,
+                                                      ecma_get_string_from_value (prop_value_p->value));
+  ecma_deref_ecma_string (type_string_p);
+  return string_p;
 } /* jerry_debugger_exception_object_to_string */
 
 /**

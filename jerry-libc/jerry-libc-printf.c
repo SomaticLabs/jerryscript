@@ -120,9 +120,6 @@ libc_printf_justified_string_output (FILE *stream, /**< stream pointer */
 
 /**
  * printf helper function that converts unsigned integer to string
- *
- * @return start of the string representation (within the output string buffer
- *         but not necessarily at its start)
  */
 static char *
 libc_printf_uint_to_string (uintmax_t value, /**< integer value */
@@ -469,7 +466,7 @@ libc_printf_write_u_o_x_X (FILE *stream, /**< stream pointer */
  *
  * @return number of characters printed
  */
-int __attr_weak___
+int
 vfprintf (FILE *stream, /**< stream pointer */
           const char *format, /**< format string */
           va_list args) /**< arguments */
@@ -719,10 +716,10 @@ vfprintf (FILE *stream, /**< stream pointer */
  *
  * @return number of characters printed
  */
-int __attr_weak___
-fprintf (FILE *stream, /**< stream pointer */
+int
+fprintf (FILE *stream,      /**< stream pointer */
          const char *format, /**< format string */
-         ...) /**< parameters' values */
+         ...)                /**< parameters' values */
 {
   va_list args;
 
@@ -740,9 +737,9 @@ fprintf (FILE *stream, /**< stream pointer */
  *
  * @return number of characters printed
  */
-int __attr_weak___
+int
 printf (const char *format, /**< format string */
-        ...) /**< parameters' values */
+        ...)                /**< parameters' values */
 {
   va_list args;
 
@@ -754,3 +751,4 @@ printf (const char *format, /**< format string */
 
   return ret;
 } /* printf */
+

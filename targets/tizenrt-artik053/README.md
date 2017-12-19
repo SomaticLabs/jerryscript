@@ -4,23 +4,6 @@ This folder contains files to build and run JerryScript on [TizenRT](https://git
 
 ### How to build
 
-#### TL; DR
-
-If you are in a hurry, run following commands:
-
-```
-$ sudo apt-add-repository -y "ppa:team-gcc-arm-embedded/ppa"
-$ sudo apt-get update 
-$ sudo apt-get install gcc-arm-embedded
-$ git clone https://github.com/jerryscript-project/jerryscript.git jerryscript
-$ cd jerryscript
-$ make -f ./targets/tizenrt-artik053/Makefile.travis install script
-```
-Next, go to [step 7](#7-generate-romfs)
-
-
-#### Build steps in detail
-
 #### 1. Set up build environment
 
 * Install toolchain
@@ -41,7 +24,7 @@ $ export PATH=<Your Toolchain PATH>:$PATH
 $ mkdir jerry-tizenrt
 $ cd jerry-tizenrt
 $ git clone https://github.com/jerryscript-project/jerryscript.git
-$ git clone https://github.com/Samsung/TizenRT.git -b 1.1_Public_Release
+$ git clone https://github.com/Samsung/TizenRT.git
 ```
 
 The following directory structure is created after these commands
@@ -57,7 +40,7 @@ jerry-tizenrt
 ```
 $ cp -r jerryscript/targets/tizenrt-artik053/apps/jerryscript/ TizenRT/apps/system/
 $ cp -r jerryscript/targets/tizenrt-artik053/configs/jerryscript/ TizenRT/build/configs/artik053/
-$ cp jerryscript/targets/tizenrt-artik053/romfs-1.1.patch TizenRT/
+$ cp jerryscript/targets/tizenrt-artik053/romfs.patch TizenRT/
 ```
 
 #### 3. Configure TizenRT
@@ -71,7 +54,7 @@ $ ./configure.sh artik053/jerryscript
 
 ```
 $ cd ../../
-$ patch -p1 < romfs-1.1.patch
+$ patch -p0 < romfs.patch
 $ cd build/output/
 $ mkdir res
 # You can add files in res folder
@@ -93,27 +76,20 @@ $ make -f targets/tizenrt-artik053/Makefile.tizenrt
 # assuming you are in jerry-tizenrt folder
 $ cd TizenRT/os
 $ make
+$ genromfs -f ../build/output/bin/rom.img -d ../build/output/res/ -V "NuttXBootVol"
 ```
 Binaries are available in TizenRT/build/output/bin
 
-#### 7. Generate romfs
-
-```
-$ genromfs -f ../build/output/bin/rom.img -d ../build/output/res/ -V "NuttXBootVol"
-```
-
-#### 8. Flash binary
+#### 7. Flash binary
 
 ```
 make download ALL
 ```
 
-Reboot the device.
-
 For more information, see [How to program a binary](https://github.com/Samsung/TizenRT/blob/master/build/configs/artik053/README.md).
 
 
-#### 9. Run JerryScript
+#### 8. Run JerryScript
 
 You can use `minicom` for terminal program, or any other you may like, but set
 baud rate to `115200`.

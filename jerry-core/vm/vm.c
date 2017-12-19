@@ -146,7 +146,6 @@ vm_op_set_value (ecma_value_t object, /**< base object */
     {
 #ifdef JERRY_ENABLE_ERROR_MESSAGES
       ecma_free_value (to_object);
-      ecma_free_value (JERRY_CONTEXT (error_value));
 
       ecma_value_t error_value = ecma_raise_standard_error_with_format (ECMA_ERROR_TYPE,
                                                                         "Cannot set property '%' of %",
@@ -180,7 +179,7 @@ vm_op_set_value (ecma_value_t object, /**< base object */
 
   ecma_object_t *object_p = ecma_get_object_from_value (object);
   ecma_string_t *property_p = ecma_get_string_from_value (property);
-  ecma_value_t completion_value = ECMA_VALUE_EMPTY;
+  ecma_value_t completion_value = ecma_make_simple_value (ECMA_SIMPLE_VALUE_EMPTY);
 
   if (!ecma_is_lexical_environment (object_p))
   {
@@ -333,7 +332,7 @@ vm_construct_literal_object (vm_frame_ctx_t *frame_ctx_p, /**< frame context */
     if (ECMA_IS_VALUE_ERROR (ret_value))
     {
       /* TODO: throw exception instead of define an 'undefined' value. */
-      return ECMA_VALUE_UNDEFINED;
+      return ecma_make_simple_value (ECMA_SIMPLE_VALUE_UNDEFINED);
     }
 
     return ret_value;
@@ -391,18 +390,18 @@ opfunc_call (vm_frame_ctx_t *frame_ctx_p) /**< frame context */
 
   bool is_call_prop = ((opcode - CBC_CALL) % 6) >= 3;
 
-  ecma_value_t this_value = ECMA_VALUE_UNDEFINED;
+  ecma_value_t this_value = ecma_make_simple_value (ECMA_SIMPLE_VALUE_UNDEFINED);
   ecma_value_t *stack_top_p = frame_ctx_p->stack_top_p - arguments_list_len;
 
   if (is_call_prop)
   {
     this_value = stack_top_p[-3];
 
-    if (this_value == ECMA_VALUE_REGISTER_REF)
+    if (this_value == ecma_make_simple_value (ECMA_SIMPLE_VALUE_REGISTER_REF))
     {
       /* Lexical environment cannot be 'this' value. */
-      stack_top_p[-2] = ECMA_VALUE_UNDEFINED;
-      this_value = ECMA_VALUE_UNDEFINED;
+      stack_top_p[-2] = ecma_make_simple_value (ECMA_SIMPLE_VALUE_UNDEFINED);
+      this_value = ecma_make_simple_value (ECMA_SIMPLE_VALUE_UNDEFINED);
     }
     else if (vm_get_implicit_this_value (&this_value))
     {
@@ -742,8 +741,8 @@ vm_loop (vm_frame_ctx_t *frame_ctx_p) /**< frame context */
   uint8_t branch_offset_length = 0;
   ecma_value_t left_value;
   ecma_value_t right_value;
-  ecma_value_t result = ECMA_VALUE_EMPTY;
-  ecma_value_t block_result = ECMA_VALUE_UNDEFINED;
+  ecma_value_t result = ecma_make_simple_value (ECMA_SIMPLE_VALUE_EMPTY);
+  ecma_value_t block_result = ecma_make_simple_value (ECMA_SIMPLE_VALUE_UNDEFINED);
   bool is_strict = ((frame_ctx_p->bytecode_header_p->status_flags & CBC_CODE_FLAGS_STRICT_MODE) != 0);
 
   /* Prepare for byte code execution. */
@@ -793,8 +792,8 @@ vm_loop (vm_frame_ctx_t *frame_ctx_p) /**< frame context */
 
       opcode_data = vm_decode_table[opcode_data];
 
-      left_value = ECMA_VALUE_UNDEFINED;
-      right_value = ECMA_VALUE_UNDEFINED;
+      left_value = ecma_make_simple_value (ECMA_SIMPLE_VALUE_UNDEFINED);
+      right_value = ecma_make_simple_value (ECMA_SIMPLE_VALUE_UNDEFINED);
 
       uint32_t operands = VM_OC_GET_ARGS_INDEX (opcode_data);
 
@@ -890,7 +889,7 @@ vm_loop (vm_frame_ctx_t *frame_ctx_p) /**< frame context */
               {
                 JERRY_CONTEXT (error_value) = ecma_clear_error_reference (result);
               }
-              result = ECMA_VALUE_ERROR;
+              result = ecma_make_simple_value (ECMA_SIMPLE_VALUE_ERROR);
               goto error;
             }
           }
@@ -935,7 +934,7 @@ vm_loop (vm_frame_ctx_t *frame_ctx_p) /**< frame context */
           uint16_t literal_index;
 
           *stack_top_p++ = left_value;
-          left_value = ECMA_VALUE_UNDEFINED;
+          left_value = ecma_make_simple_value (ECMA_SIMPLE_VALUE_UNDEFINED);
 
           READ_LITERAL_INDEX (literal_index);
           READ_LITERAL (literal_index, left_value);
@@ -946,22 +945,22 @@ vm_loop (vm_frame_ctx_t *frame_ctx_p) /**< frame context */
         }
         case VM_OC_PUSH_UNDEFINED:
         {
-          *stack_top_p++ = ECMA_VALUE_UNDEFINED;
+          *stack_top_p++ = ecma_make_simple_value (ECMA_SIMPLE_VALUE_UNDEFINED);
           continue;
         }
         case VM_OC_PUSH_TRUE:
         {
-          *stack_top_p++ = ECMA_VALUE_TRUE;
+          *stack_top_p++ = ecma_make_simple_value (ECMA_SIMPLE_VALUE_TRUE);
           continue;
         }
         case VM_OC_PUSH_FALSE:
         {
-          *stack_top_p++ = ECMA_VALUE_FALSE;
+          *stack_top_p++ = ecma_make_simple_value (ECMA_SIMPLE_VALUE_FALSE);
           continue;
         }
         case VM_OC_PUSH_NULL:
         {
-          *stack_top_p++ = ECMA_VALUE_NULL;
+          *stack_top_p++ = ecma_make_simple_value (ECMA_SIMPLE_VALUE_NULL);
           continue;
         }
         case VM_OC_PUSH_THIS:
@@ -1075,7 +1074,7 @@ vm_loop (vm_frame_ctx_t *frame_ctx_p) /**< frame context */
         }
         case VM_OC_PUSH_ELISON:
         {
-          *stack_top_p++ = ECMA_VALUE_ARRAY_HOLE;
+          *stack_top_p++ = ecma_make_simple_value (ECMA_SIMPLE_VALUE_ARRAY_HOLE);
           continue;
         }
         case VM_OC_APPEND_ARRAY:
@@ -1124,7 +1123,7 @@ vm_loop (vm_frame_ctx_t *frame_ctx_p) /**< frame context */
         case VM_OC_PUSH_UNDEFINED_BASE:
         {
           stack_top_p[0] = stack_top_p[-1];
-          stack_top_p[-1] = ECMA_VALUE_UNDEFINED;
+          stack_top_p[-1] = ecma_make_simple_value (ECMA_SIMPLE_VALUE_UNDEFINED);
           stack_top_p++;
           continue;
         }
@@ -1138,7 +1137,7 @@ vm_loop (vm_frame_ctx_t *frame_ctx_p) /**< frame context */
 
           if (literal_index < register_end)
           {
-            *stack_top_p++ = ECMA_VALUE_REGISTER_REF;
+            *stack_top_p++ = ecma_make_simple_value (ECMA_SIMPLE_VALUE_REGISTER_REF);
             *stack_top_p++ = literal_index;
             *stack_top_p++ = ecma_fast_copy_value (frame_ctx_p->registers_p[literal_index]);
           }
@@ -1205,8 +1204,8 @@ vm_loop (vm_frame_ctx_t *frame_ctx_p) /**< frame context */
           {
             if (opcode >= CBC_PUSH_PROP_REFERENCE && opcode < CBC_PRE_INCR)
             {
-              left_value = ECMA_VALUE_UNDEFINED;
-              right_value = ECMA_VALUE_UNDEFINED;
+              left_value = ecma_make_simple_value (ECMA_SIMPLE_VALUE_UNDEFINED);
+              right_value = ecma_make_simple_value (ECMA_SIMPLE_VALUE_UNDEFINED);
             }
             goto error;
           }
@@ -1215,15 +1214,15 @@ vm_loop (vm_frame_ctx_t *frame_ctx_p) /**< frame context */
           {
             if (opcode >= CBC_PUSH_PROP_REFERENCE)
             {
-              left_value = ECMA_VALUE_UNDEFINED;
-              right_value = ECMA_VALUE_UNDEFINED;
+              left_value = ecma_make_simple_value (ECMA_SIMPLE_VALUE_UNDEFINED);
+              right_value = ecma_make_simple_value (ECMA_SIMPLE_VALUE_UNDEFINED);
             }
             break;
           }
 
           stack_top_p += 2;
           left_value = result;
-          right_value = ECMA_VALUE_UNDEFINED;
+          right_value = ecma_make_simple_value (ECMA_SIMPLE_VALUE_UNDEFINED);
           /* FALLTHRU */
         }
         case VM_OC_PRE_INCR:
@@ -1238,7 +1237,7 @@ vm_loop (vm_frame_ctx_t *frame_ctx_p) /**< frame context */
           if (ecma_is_value_integer_number (left_value))
           {
             result = left_value;
-            left_value = ECMA_VALUE_UNDEFINED;
+            left_value = ecma_make_simple_value (ECMA_SIMPLE_VALUE_UNDEFINED);
 
             ecma_integer_value_t int_value = (ecma_integer_value_t) result;
             ecma_integer_value_t int_increase = 0;
@@ -1299,7 +1298,7 @@ vm_loop (vm_frame_ctx_t *frame_ctx_p) /**< frame context */
           else if (ecma_is_value_float_number (left_value))
           {
             result = left_value;
-            left_value = ECMA_VALUE_UNDEFINED;
+            left_value = ecma_make_simple_value (ECMA_SIMPLE_VALUE_UNDEFINED);
           }
           else
           {
@@ -1368,14 +1367,14 @@ vm_loop (vm_frame_ctx_t *frame_ctx_p) /**< frame context */
         case VM_OC_ASSIGN:
         {
           result = left_value;
-          left_value = ECMA_VALUE_UNDEFINED;
+          left_value = ecma_make_simple_value (ECMA_SIMPLE_VALUE_UNDEFINED);
           break;
         }
         case VM_OC_ASSIGN_PROP:
         {
           result = stack_top_p[-1];
           stack_top_p[-1] = left_value;
-          left_value = ECMA_VALUE_UNDEFINED;
+          left_value = ecma_make_simple_value (ECMA_SIMPLE_VALUE_UNDEFINED);
           break;
         }
         case VM_OC_ASSIGN_PROP_THIS:
@@ -1383,7 +1382,7 @@ vm_loop (vm_frame_ctx_t *frame_ctx_p) /**< frame context */
           result = stack_top_p[-1];
           stack_top_p[-1] = ecma_copy_value (frame_ctx_p->this_binding);
           *stack_top_p++ = left_value;
-          left_value = ECMA_VALUE_UNDEFINED;
+          left_value = ecma_make_simple_value (ECMA_SIMPLE_VALUE_UNDEFINED);
           break;
         }
         case VM_OC_RET:
@@ -1395,18 +1394,18 @@ vm_loop (vm_frame_ctx_t *frame_ctx_p) /**< frame context */
           if (opcode == CBC_RETURN_WITH_BLOCK)
           {
             left_value = block_result;
-            block_result = ECMA_VALUE_UNDEFINED;
+            block_result = ecma_make_simple_value (ECMA_SIMPLE_VALUE_UNDEFINED);
           }
 
           result = left_value;
-          left_value = ECMA_VALUE_UNDEFINED;
+          left_value = ecma_make_simple_value (ECMA_SIMPLE_VALUE_UNDEFINED);
           goto error;
         }
         case VM_OC_THROW:
         {
           JERRY_CONTEXT (error_value) = left_value;
-          result = ECMA_VALUE_ERROR;
-          left_value = ECMA_VALUE_UNDEFINED;
+          result = ecma_make_simple_value (ECMA_SIMPLE_VALUE_ERROR);
+          left_value = ecma_make_simple_value (ECMA_SIMPLE_VALUE_UNDEFINED);
           goto error;
         }
         case VM_OC_THROW_REFERENCE_ERROR:
@@ -1428,7 +1427,7 @@ vm_loop (vm_frame_ctx_t *frame_ctx_p) /**< frame context */
             frame_ctx_p->byte_code_p = byte_code_start_p;
             frame_ctx_p->stack_top_p = stack_top_p;
             frame_ctx_p->call_block_result = block_result;
-            return ECMA_VALUE_UNDEFINED;
+            return ecma_make_simple_value (ECMA_SIMPLE_VALUE_UNDEFINED);
           }
 
           if (opcode < CBC_CALL0)
@@ -1469,7 +1468,7 @@ vm_loop (vm_frame_ctx_t *frame_ctx_p) /**< frame context */
             frame_ctx_p->byte_code_p = byte_code_start_p;
             frame_ctx_p->stack_top_p = stack_top_p;
             frame_ctx_p->call_block_result = block_result;
-            return ECMA_VALUE_UNDEFINED;
+            return ecma_make_simple_value (ECMA_SIMPLE_VALUE_UNDEFINED);
           }
 
           if (opcode < CBC_NEW0)
@@ -1512,7 +1511,7 @@ vm_loop (vm_frame_ctx_t *frame_ctx_p) /**< frame context */
 
           if (literal_index < register_end)
           {
-            *stack_top_p++ = ECMA_VALUE_FALSE;
+            *stack_top_p++ = ecma_make_simple_value (ECMA_SIMPLE_VALUE_FALSE);
             continue;
           }
 
@@ -1578,9 +1577,20 @@ vm_loop (vm_frame_ctx_t *frame_ctx_p) /**< frame context */
           continue;
         }
         case VM_OC_PLUS:
+        {
+          result = opfunc_unary_plus (left_value);
+
+          if (ECMA_IS_VALUE_ERROR (result))
+          {
+            goto error;
+          }
+
+          *stack_top_p++ = result;
+          goto free_left_value;
+        }
         case VM_OC_MINUS:
         {
-          result = opfunc_unary_operation (left_value, VM_OC_GROUP_GET_INDEX (opcode_data) == VM_OC_PLUS);
+          result = opfunc_unary_minus (left_value);
 
           if (ECMA_IS_VALUE_ERROR (result))
           {
@@ -1604,15 +1614,6 @@ vm_loop (vm_frame_ctx_t *frame_ctx_p) /**< frame context */
         }
         case VM_OC_BIT_NOT:
         {
-          JERRY_STATIC_ASSERT (ECMA_DIRECT_TYPE_MASK == ((1 << ECMA_DIRECT_SHIFT) - 1),
-                               direct_type_mask_must_fill_all_bits_before_the_value_starts);
-
-          if (ecma_is_value_integer_number (left_value))
-          {
-            *stack_top_p++ = (~left_value) & (ecma_value_t) (~ECMA_DIRECT_TYPE_MASK);
-            goto free_left_value;
-          }
-
           result = do_number_bitwise_logic (NUMBER_BITWISE_NOT,
                                             left_value,
                                             left_value);
@@ -1627,7 +1628,7 @@ vm_loop (vm_frame_ctx_t *frame_ctx_p) /**< frame context */
         }
         case VM_OC_VOID:
         {
-          *stack_top_p++ = ECMA_VALUE_UNDEFINED;
+          *stack_top_p++ = ecma_make_simple_value (ECMA_SIMPLE_VALUE_UNDEFINED);
           goto free_left_value;
         }
         case VM_OC_TYPEOF_IDENT:
@@ -1652,7 +1653,7 @@ vm_loop (vm_frame_ctx_t *frame_ctx_p) /**< frame context */
 
             if (ref_base_lex_env_p == NULL)
             {
-              result = ECMA_VALUE_UNDEFINED;
+              result = ecma_make_simple_value (ECMA_SIMPLE_VALUE_UNDEFINED);
             }
             else
             {
@@ -1696,22 +1697,22 @@ vm_loop (vm_frame_ctx_t *frame_ctx_p) /**< frame context */
           if (ecma_is_value_float_number (left_value)
               && ecma_is_value_number (right_value))
           {
-            ecma_number_t new_value = (ecma_get_float_from_value (left_value) +
-                                       ecma_get_number_from_value (right_value));
+            ecma_number_t new_value = ecma_number_add (ecma_get_float_from_value (left_value),
+                                                       ecma_get_number_from_value (right_value));
 
             result = ecma_update_float_number (left_value, new_value);
-            left_value = ECMA_VALUE_UNDEFINED;
+            left_value = ecma_make_simple_value (ECMA_SIMPLE_VALUE_UNDEFINED);
             break;
           }
 
           if (ecma_is_value_float_number (right_value)
               && ecma_is_value_integer_number (left_value))
           {
-            ecma_number_t new_value = ((ecma_number_t) ecma_get_integer_from_value (left_value) +
-                                       ecma_get_float_from_value (right_value));
+            ecma_number_t new_value = ecma_number_add ((ecma_number_t) ecma_get_integer_from_value (left_value),
+                                                       ecma_get_float_from_value (right_value));
 
             result = ecma_update_float_number (right_value, new_value);
-            right_value = ECMA_VALUE_UNDEFINED;
+            right_value = ecma_make_simple_value (ECMA_SIMPLE_VALUE_UNDEFINED);
             break;
           }
 
@@ -1743,22 +1744,22 @@ vm_loop (vm_frame_ctx_t *frame_ctx_p) /**< frame context */
           if (ecma_is_value_float_number (left_value)
               && ecma_is_value_number (right_value))
           {
-            ecma_number_t new_value = (ecma_get_float_from_value (left_value) -
-                                       ecma_get_number_from_value (right_value));
+            ecma_number_t new_value = ecma_number_substract (ecma_get_float_from_value (left_value),
+                                                             ecma_get_number_from_value (right_value));
 
             result = ecma_update_float_number (left_value, new_value);
-            left_value = ECMA_VALUE_UNDEFINED;
+            left_value = ecma_make_simple_value (ECMA_SIMPLE_VALUE_UNDEFINED);
             break;
           }
 
           if (ecma_is_value_float_number (right_value)
               && ecma_is_value_integer_number (left_value))
           {
-            ecma_number_t new_value = ((ecma_number_t) ecma_get_integer_from_value (left_value) -
-                                       ecma_get_float_from_value (right_value));
+            ecma_number_t new_value = ecma_number_substract ((ecma_number_t) ecma_get_integer_from_value (left_value),
+                                                             ecma_get_float_from_value (right_value));
 
             result = ecma_update_float_number (right_value, new_value);
-            right_value = ECMA_VALUE_UNDEFINED;
+            right_value = ecma_make_simple_value (ECMA_SIMPLE_VALUE_UNDEFINED);
             break;
           }
 
@@ -1793,11 +1794,12 @@ vm_loop (vm_frame_ctx_t *frame_ctx_p) /**< frame context */
                 && left_value != 0
                 && right_value != 0)
             {
-              result = ecma_integer_multiply (left_integer, right_integer);
+              result = ecma_make_integer_value (left_integer * right_integer);
               break;
             }
 
-            ecma_number_t multiply = (ecma_number_t) left_integer * (ecma_number_t) right_integer;
+            ecma_number_t multiply = ecma_number_multiply ((ecma_number_t) left_integer,
+                                                           (ecma_number_t) right_integer);
             result = ecma_make_number_value (multiply);
             break;
           }
@@ -1805,22 +1807,22 @@ vm_loop (vm_frame_ctx_t *frame_ctx_p) /**< frame context */
           if (ecma_is_value_float_number (left_value)
               && ecma_is_value_number (right_value))
           {
-            ecma_number_t new_value = (ecma_get_float_from_value (left_value) *
-                                       ecma_get_number_from_value (right_value));
+            ecma_number_t new_value = ecma_number_multiply (ecma_get_float_from_value (left_value),
+                                                            ecma_get_number_from_value (right_value));
 
             result = ecma_update_float_number (left_value, new_value);
-            left_value = ECMA_VALUE_UNDEFINED;
+            left_value = ecma_make_simple_value (ECMA_SIMPLE_VALUE_UNDEFINED);
             break;
           }
 
           if (ecma_is_value_float_number (right_value)
               && ecma_is_value_integer_number (left_value))
           {
-            ecma_number_t new_value = ((ecma_number_t) ecma_get_integer_from_value (left_value) *
-                                       ecma_get_float_from_value (right_value));
+            ecma_number_t new_value = ecma_number_multiply ((ecma_number_t) ecma_get_integer_from_value (left_value),
+                                                            ecma_get_float_from_value (right_value));
 
             result = ecma_update_float_number (right_value, new_value);
-            right_value = ECMA_VALUE_UNDEFINED;
+            right_value = ecma_make_simple_value (ECMA_SIMPLE_VALUE_UNDEFINED);
             break;
           }
 
@@ -1883,7 +1885,7 @@ vm_loop (vm_frame_ctx_t *frame_ctx_p) /**< frame context */
         }
         case VM_OC_EQUAL:
         {
-          result = opfunc_equality (left_value, right_value);
+          result = opfunc_equal_value (left_value, right_value);
 
           if (ECMA_IS_VALUE_ERROR (result))
           {
@@ -1895,14 +1897,14 @@ vm_loop (vm_frame_ctx_t *frame_ctx_p) /**< frame context */
         }
         case VM_OC_NOT_EQUAL:
         {
-          result = opfunc_equality (left_value, right_value);
+          result = opfunc_not_equal_value (left_value, right_value);
 
           if (ECMA_IS_VALUE_ERROR (result))
           {
             goto error;
           }
 
-          *stack_top_p++ = ecma_invert_boolean_value (result);
+          *stack_top_p++ = result;
           goto free_both_values;
         }
         case VM_OC_STRICT_EQUAL:
@@ -1925,15 +1927,6 @@ vm_loop (vm_frame_ctx_t *frame_ctx_p) /**< frame context */
         }
         case VM_OC_BIT_OR:
         {
-          JERRY_STATIC_ASSERT (ECMA_DIRECT_TYPE_MASK == ((1 << ECMA_DIRECT_SHIFT) - 1),
-                               direct_type_mask_must_fill_all_bits_before_the_value_starts);
-
-          if (ecma_are_values_integer_numbers (left_value, right_value))
-          {
-            result = left_value | right_value;
-            break;
-          }
-
           result = do_number_bitwise_logic (NUMBER_BITWISE_LOGIC_OR,
                                             left_value,
                                             right_value);
@@ -1946,15 +1939,6 @@ vm_loop (vm_frame_ctx_t *frame_ctx_p) /**< frame context */
         }
         case VM_OC_BIT_XOR:
         {
-          JERRY_STATIC_ASSERT (ECMA_DIRECT_TYPE_MASK == ((1 << ECMA_DIRECT_SHIFT) - 1),
-                               direct_type_mask_must_fill_all_bits_before_the_value_starts);
-
-          if (ecma_are_values_integer_numbers (left_value, right_value))
-          {
-            result = (left_value ^ right_value) & (ecma_value_t) (~ECMA_DIRECT_TYPE_MASK);
-            break;
-          }
-
           result = do_number_bitwise_logic (NUMBER_BITWISE_LOGIC_XOR,
                                             left_value,
                                             right_value);
@@ -1967,15 +1951,6 @@ vm_loop (vm_frame_ctx_t *frame_ctx_p) /**< frame context */
         }
         case VM_OC_BIT_AND:
         {
-          JERRY_STATIC_ASSERT (ECMA_DIRECT_TYPE_MASK == ((1 << ECMA_DIRECT_SHIFT) - 1),
-                               direct_type_mask_must_fill_all_bits_before_the_value_starts);
-
-          if (ecma_are_values_integer_numbers (left_value, right_value))
-          {
-            result = left_value & right_value;
-            break;
-          }
-
           result = do_number_bitwise_logic (NUMBER_BITWISE_LOGIC_AND,
                                             left_value,
                                             right_value);
@@ -1988,17 +1963,6 @@ vm_loop (vm_frame_ctx_t *frame_ctx_p) /**< frame context */
         }
         case VM_OC_LEFT_SHIFT:
         {
-          JERRY_STATIC_ASSERT (ECMA_DIRECT_TYPE_MASK == ((1 << ECMA_DIRECT_SHIFT) - 1),
-                               direct_type_mask_must_fill_all_bits_before_the_value_starts);
-
-          if (ecma_are_values_integer_numbers (left_value, right_value))
-          {
-            ecma_integer_value_t left_integer = ecma_get_integer_from_value (left_value);
-            ecma_integer_value_t right_integer = ecma_get_integer_from_value (right_value);
-            result = ecma_make_int32_value ((int32_t) (left_integer << (right_integer & 0x1f)));
-            break;
-          }
-
           result = do_number_bitwise_logic (NUMBER_BITWISE_SHIFT_LEFT,
                                             left_value,
                                             right_value);
@@ -2011,17 +1975,6 @@ vm_loop (vm_frame_ctx_t *frame_ctx_p) /**< frame context */
         }
         case VM_OC_RIGHT_SHIFT:
         {
-          JERRY_STATIC_ASSERT (ECMA_DIRECT_TYPE_MASK == ((1 << ECMA_DIRECT_SHIFT) - 1),
-                               direct_type_mask_must_fill_all_bits_before_the_value_starts);
-
-          if (ecma_are_values_integer_numbers (left_value, right_value))
-          {
-            ecma_integer_value_t left_integer = ecma_get_integer_from_value (left_value);
-            ecma_integer_value_t right_integer = ecma_get_integer_from_value (right_value);
-            result = ecma_make_integer_value (left_integer >> (right_integer & 0x1f));
-            break;
-          }
-
           result = do_number_bitwise_logic (NUMBER_BITWISE_SHIFT_RIGHT,
                                             left_value,
                                             right_value);
@@ -2034,17 +1987,6 @@ vm_loop (vm_frame_ctx_t *frame_ctx_p) /**< frame context */
         }
         case VM_OC_UNS_RIGHT_SHIFT:
         {
-          JERRY_STATIC_ASSERT (ECMA_DIRECT_TYPE_MASK == ((1 << ECMA_DIRECT_SHIFT) - 1),
-                               direct_type_mask_must_fill_all_bits_before_the_value_starts);
-
-          if (ecma_are_values_integer_numbers (left_value, right_value))
-          {
-            uint32_t left_uint32 = (uint32_t) ecma_get_integer_from_value (left_value);
-            ecma_integer_value_t right_integer = ecma_get_integer_from_value (right_value);
-            result = ecma_make_uint32_value (left_uint32 >> (right_integer & 0x1f));
-            break;
-          }
-
           result = do_number_bitwise_logic (NUMBER_BITWISE_SHIFT_URIGHT,
                                             left_value,
                                             right_value);
@@ -2108,7 +2050,7 @@ vm_loop (vm_frame_ctx_t *frame_ctx_p) /**< frame context */
             goto free_both_values;
           }
 
-          result = opfunc_relation (left_value, right_value, true, false);
+          result = opfunc_less_than (left_value, right_value);
 
           if (ECMA_IS_VALUE_ERROR (result))
           {
@@ -2138,7 +2080,7 @@ vm_loop (vm_frame_ctx_t *frame_ctx_p) /**< frame context */
             goto free_both_values;
           }
 
-          result = opfunc_relation (left_value, right_value, false, false);
+          result = opfunc_greater_than (left_value, right_value);
 
           if (ECMA_IS_VALUE_ERROR (result))
           {
@@ -2168,7 +2110,7 @@ vm_loop (vm_frame_ctx_t *frame_ctx_p) /**< frame context */
             goto free_both_values;
           }
 
-          result = opfunc_relation (left_value, right_value, false, true);
+          result = opfunc_less_or_equal_than (left_value, right_value);
 
           if (ECMA_IS_VALUE_ERROR (result))
           {
@@ -2198,7 +2140,7 @@ vm_loop (vm_frame_ctx_t *frame_ctx_p) /**< frame context */
             goto free_both_values;
           }
 
-          result = opfunc_relation (left_value, right_value, true, true);
+          result = opfunc_greater_or_equal_than (left_value, right_value);
 
           if (ECMA_IS_VALUE_ERROR (result))
           {
@@ -2273,7 +2215,7 @@ vm_loop (vm_frame_ctx_t *frame_ctx_p) /**< frame context */
 
           JERRY_ASSERT (frame_ctx_p->registers_p + register_end + frame_ctx_p->context_depth == stack_top_p);
 
-          ecma_value_t expr_obj_value = ECMA_VALUE_UNDEFINED;
+          ecma_value_t expr_obj_value = ecma_make_simple_value (ECMA_SIMPLE_VALUE_UNDEFINED);
           ecma_collection_header_t *header_p = opfunc_for_in (value, &expr_obj_value);
           ecma_free_value (value);
 
@@ -2423,7 +2365,7 @@ vm_loop (vm_frame_ctx_t *frame_ctx_p) /**< frame context */
               VM_MINUS_EQUAL_U16 (frame_ctx_p->context_depth,
                                   PARSER_TRY_CONTEXT_STACK_ALLOCATION);
               stack_top_p -= PARSER_TRY_CONTEXT_STACK_ALLOCATION;
-              result = ECMA_VALUE_ERROR;
+              result = ecma_make_simple_value (ECMA_SIMPLE_VALUE_ERROR);
               goto error;
             }
             case VM_CONTEXT_FINALLY_RETURN:
@@ -2585,7 +2527,7 @@ vm_loop (vm_frame_ctx_t *frame_ctx_p) /**< frame context */
         ecma_value_t property = *(--stack_top_p);
         ecma_value_t object = *(--stack_top_p);
 
-        if (object == ECMA_VALUE_REGISTER_REF)
+        if (object == ecma_make_simple_value (ECMA_SIMPLE_VALUE_REGISTER_REF))
         {
           ecma_fast_free_value (frame_ctx_p->registers_p[property]);
 
@@ -2647,7 +2589,7 @@ error:
            vm_stack_p < stack_top_p;
            vm_stack_p++)
       {
-        if (*vm_stack_p == ECMA_VALUE_REGISTER_REF)
+        if (*vm_stack_p == ecma_make_simple_value (ECMA_SIMPLE_VALUE_REGISTER_REF))
         {
           JERRY_ASSERT (vm_stack_p < stack_top_p);
           vm_stack_p++;
@@ -2758,8 +2700,8 @@ error:
           {
             JERRY_CONTEXT (vm_exec_stop_counter) = 1;
 
-            left_value = ECMA_VALUE_UNDEFINED;
-            right_value = ECMA_VALUE_UNDEFINED;
+            left_value = ecma_make_simple_value (ECMA_SIMPLE_VALUE_UNDEFINED);
+            right_value = ecma_make_simple_value (ECMA_SIMPLE_VALUE_UNDEFINED);
 
             if (!ecma_is_value_error_reference (result))
             {
@@ -2769,7 +2711,7 @@ error:
             {
               JERRY_CONTEXT (error_value) = ecma_clear_error_reference (result);
             }
-            result = ECMA_VALUE_ERROR;
+            result = ecma_make_simple_value (ECMA_SIMPLE_VALUE_ERROR);
             goto error;
           }
         }
@@ -2837,7 +2779,7 @@ vm_execute (vm_frame_ctx_t *frame_ctx_p, /**< frame context */
 
     for (uint32_t i = arg_list_len; i < register_end; i++)
     {
-      *stack_p++ = ECMA_VALUE_UNDEFINED;
+      *stack_p++ = ecma_make_simple_value (ECMA_SIMPLE_VALUE_UNDEFINED);
     }
   }
 

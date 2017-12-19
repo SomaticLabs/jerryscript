@@ -18,11 +18,6 @@
 
 #include "jerryscript.h"
 
-#ifdef __cplusplus
-extern "C"
-{
-#endif /* __cplusplus */
-
 /**
  * Declare the signature for the module initialization function.
  */
@@ -134,7 +129,4 @@ jerry_value_t jerryx_module_resolve (const jerry_value_t name,
                                      const jerryx_module_resolver_t **resolvers,
                                      size_t count);
 
-#ifdef __cplusplus
-}
-#endif /* __cplusplus */
 #endif /* !JERRYX_MODULE_H */
