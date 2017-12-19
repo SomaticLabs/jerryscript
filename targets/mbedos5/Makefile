@@ -19,9 +19,9 @@
 BOARD=$(subst [mbed] ,,$(shell mbed target))
 HEAPSIZE=16
 
-DEBUG?=0
-NO_JS?=0
-MBED_VERBOSE?=0
+DEBUG=0
+NO_JS=0
+MBED_VERBOSE=0
 
 MBED_CLI_FLAGS=-j0 --source . --source ../../
 
@@ -63,10 +63,10 @@ library: .mbed ../../.mbedignore
 	mbed compile $(MBED_CLI_FLAGS) --library
 
 clean:
-	rm -rf ./BUILD/$(BOARD)
+	rm -rf .build/$(BOARD)
 
 js2c: js/main.js js/flash_leds.js
-	python ../../tools/js2c.py --ignore pins.js
+	python ../tools/js2c.py --ignore pins.js
 
 source/pins.cpp:
 	python tools/generate_pins.py ${BOARD}

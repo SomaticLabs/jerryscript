@@ -19,7 +19,36 @@ project (Jerry C ASM)
 set(PLATFORM "${CMAKE_SYSTEM_NAME}")
 string(TOUPPER "${PLATFORM}" PLATFORM)
 
-# Determining compiler
+# Remove rdynamic option
+set(CMAKE_SHARED_LIBRARY_LINK_C_FLAGS )
+
+# Components
+set(JERRY_CMDLINE         ON  CACHE BOOL "Build jerry command line tool?")
+set(JERRY_CMDLINE_MINIMAL OFF CACHE BOOL "Build jerry minimal command line tool?")
+set(JERRY_LIBC            ON  CACHE BOOL "Build and use jerry-libc?")
+set(JERRY_LIBM            ON  CACHE BOOL "Build and use jerry-libm?")
+set(UNITTESTS             OFF CACHE BOOL "Build unit tests?")
+
+# Optional build settings
+set(ENABLE_ALL_IN_ONE         OFF                                   CACHE BOOL   "Enable all-in-one build?")
+set(ENABLE_LTO                ON                                    CACHE BOOL   "Enable LTO build?")
+set(ENABLE_STATIC_LINK        ON                                    CACHE BOOL   "Enable static linking?")
+set(ENABLE_STRIP              ON                                    CACHE BOOL   "Enable stripping all symbols from release binary?")
+set(PORT_DIR                  "${CMAKE_SOURCE_DIR}/targets/default" CACHE STRING "Use default or external port?")
+
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE "MinSizeRel")
+endif()
+
+if("${PLATFORM}" STREQUAL "DARWIN")
+  set(ENABLE_LTO "OFF")
+  set(ENABLE_ALL_IN_ONE "ON")
+  set(JERRY_LIBC "OFF")
+  set(JERRY_LIBM "OFF")
+  set(ENABLE_STATIC_LINK "OFF")
+endif()
+
+
 if(CMAKE_C_COMPILER_ID MATCHES "GNU")
   set(USING_GCC 1)
 endif()
@@ -32,86 +61,29 @@ if(CMAKE_C_COMPILER_ID MATCHES "TI")
   set(USING_TI 1)
 endif()
 
-# Determining build type
-if(NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE "MinSizeRel")
-endif()
-
-# Optional components
-set(JERRY_CMDLINE           ON  CACHE BOOL "Build jerry command line tool?")
-set(JERRY_CMDLINE_MINIMAL   OFF CACHE BOOL "Build jerry minimal command line tool?")
-set(JERRY_CMDLINE_SNAPSHOT  OFF CACHE BOOL "Build jerry snapshot command line tool?")
-set(JERRY_PORT_DEFAULT      ON  CACHE BOOL "Build default jerry port implementation?")
-set(JERRY_EXT               ON  CACHE BOOL "Build jerry-ext?")
-set(JERRY_LIBC              ON  CACHE BOOL "Build and use jerry-libc?")
-set(JERRY_LIBM              ON  CACHE BOOL "Build and use jerry-libm?")
-set(UNITTESTS               OFF CACHE BOOL "Build unit tests?")
-set(DOCTESTS                OFF CACHE BOOL "Build doc tests?")
-
-# Optional build settings
-set(ENABLE_ALL_IN_ONE  OFF CACHE BOOL "Enable all-in-one build?")
-set(ENABLE_LTO         ON  CACHE BOOL "Enable LTO build?")
-set(ENABLE_STATIC_LINK ON  CACHE BOOL "Enable static linking?")
-set(ENABLE_STRIP       ON  CACHE BOOL "Enable stripping all symbols from release binary?")
-
-# Optional features
-set(FEATURE_INIT_FINI OFF CACHE BOOL "Enable init/fini arrays?")
-
-# Option overrides
-if(JERRY_CMDLINE OR JERRY_CMDLINE_MINIMAL OR JERRY_CMDLINE_SNAPSHOT OR UNITTESTS OR DOCTESTS)
-  set(JERRY_PORT_DEFAULT ON)
-
-  set(JERRY_PORT_DEFAULT_MESSAGE " (FORCED BY CMDLINE OR TESTS)")
-endif()
-
-if(JERRY_CMDLINE OR DOCTESTS)
-  set(JERRY_EXT ON)
-
-  set(JERRY_EXT_MESSAGE " (FORCED BY CMDLINE OR TESTS)")
-endif()
-
-if("${PLATFORM}" STREQUAL "DARWIN")
-  set(JERRY_LIBC         OFF)
-  set(JERRY_LIBM         OFF)
-  set(ENABLE_ALL_IN_ONE  ON)
-  set(ENABLE_LTO         OFF)
-  set(ENABLE_STATIC_LINK OFF)
-  set(ENABLE_STRIP       OFF)
-
-  set(JERRY_LIBC_MESSAGE         " (FORCED BY PLATFORM)")
-  set(JERRY_LIBM_MESSAGE         " (FORCED BY PLATFORM)")
-  set(ENABLE_ALL_IN_ONE_MESSAGE  " (FORCED BY PLATFORM)")
-  set(ENABLE_LTO_MESSAGE         " (FORCED BY PLATFORM)")
-  set(ENABLE_STATIC_LINK_MESSAGE " (FORCED BY PLATFORM)")
-  set(ENABLE_STRIP_MESSAGE       " (FORCED BY PLATFORM)")
-endif()
-
-if(USING_TI)
-  set(ENABLE_STATIC_LINK ON)
-  set(ENABLE_STRIP       OFF)
-
-  set(ENABLE_STATIC_LINK_MESSAGE " (FORCED BY COMPILER)")
-  set(ENABLE_STRIP_MESSAGE       " (FORCED BY COMPILER)")
-endif()
-
 # Status messages
 message(STATUS "CMAKE_BUILD_TYPE          " ${CMAKE_BUILD_TYPE})
 message(STATUS "CMAKE_SYSTEM_NAME         " ${CMAKE_SYSTEM_NAME})
 message(STATUS "CMAKE_SYSTEM_PROCESSOR    " ${CMAKE_SYSTEM_PROCESSOR})
-message(STATUS "ENABLE_ALL_IN_ONE         " ${ENABLE_ALL_IN_ONE} ${ENABLE_ALL_IN_ONE_MESSAGE})
-message(STATUS "ENABLE_LTO                " ${ENABLE_LTO} ${ENABLE_LTO_MESSAGE})
-message(STATUS "ENABLE_STATIC_LINK        " ${ENABLE_STATIC_LINK} ${ENABLE_STATIC_LINK_MESSAGE})
-message(STATUS "ENABLE_STRIP              " ${ENABLE_STRIP} ${ENABLE_STRIP_MESSAGE})
+message(STATUS "ENABLE_ALL_IN_ONE         " ${ENABLE_ALL_IN_ONE})
+message(STATUS "ENABLE_LTO                " ${ENABLE_LTO})
+
+if(USING_TI)
+# If using a compiler that _only_ does static linking, inform the user
+# of the discrepancy in settings.
+  set(ENABLE_STATIC_LINK "ON")
+  message(STATUS "ENABLE_STATIC_LINK        " ${ENABLE_STATIC_LINK} " (ONLY OPTION FOR THIS COMPILER)")
+else()
+  message(STATUS "ENABLE_STATIC_LINK        " ${ENABLE_STATIC_LINK})
+endif()
+
+message(STATUS "ENABLE_STRIP              " ${ENABLE_STRIP})
 message(STATUS "JERRY_CMDLINE             " ${JERRY_CMDLINE})
 message(STATUS "JERRY_CMDLINE_MINIMAL     " ${JERRY_CMDLINE_MINIMAL})
-message(STATUS "JERRY_CMDLINE_SNAPSHOT    " ${JERRY_CMDLINE_SNAPSHOT})
-message(STATUS "JERRY_PORT_DEFAULT        " ${JERRY_PORT_DEFAULT} ${JERRY_PORT_DEFAULT_MESSAGE})
-message(STATUS "JERRY_EXT                 " ${JERRY_EXT} ${JERRY_EXT_MESSAGE})
-message(STATUS "JERRY_LIBC                " ${JERRY_LIBC} ${JERRY_LIBC_MESSAGE})
-message(STATUS "JERRY_LIBM                " ${JERRY_LIBM} ${JERRY_LIBM_MESSAGE})
+message(STATUS "JERRY_LIBC                " ${JERRY_LIBC})
+message(STATUS "JERRY_LIBM                " ${JERRY_LIBM})
+message(STATUS "PORT_DIR                  " ${PORT_DIR})
 message(STATUS "UNITTESTS                 " ${UNITTESTS})
-message(STATUS "DOCTESTS                  " ${DOCTESTS})
-message(STATUS "FEATURE_INIT_FINI         " ${FEATURE_INIT_FINI})
 
 # Setup directories
 # Project binary dir
@@ -125,9 +97,6 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/bin/")
 
 # Archive targets output Directory
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/lib/")
-
-# Remove rdynamic option
-set(CMAKE_SHARED_LIBRARY_LINK_C_FLAGS )
 
 # Compile/link flags
 # Helper macros
@@ -172,7 +141,9 @@ if(ENABLE_LTO)
     jerry_add_link_flags(-flto)
   endif()
   if(USING_GCC)
-    jerry_add_compile_flags(-fno-fat-lto-objects)
+    if(NOT "${PLATFORM}" STREQUAL "DARWIN")
+      jerry_add_compile_flags(-fno-fat-lto-objects)
+    endif()
     # Use gcc-ar and gcc-ranlib to support LTO
     set(CMAKE_AR "gcc-ar")
     set(CMAKE_RANLIB "gcc-ranlib")
@@ -182,14 +153,17 @@ if(ENABLE_LTO)
   endif()
 endif()
 
+# Define _BSD_SOURCE and _DEFAULT_SOURCE if we use default port and compiler default libc
+if(${PORT_DIR} STREQUAL "${CMAKE_SOURCE_DIR}/targets/default" AND NOT JERRY_LIBC)
+  set(DEFINES_JERRY ${DEFINES_JERRY} _BSD_SOURCE _DEFAULT_SOURCE)
+endif()
+
 # Compiler / Linker flags
 if (USING_GCC OR USING_CLANG)
   jerry_add_compile_flags(-fno-builtin)
 endif()
 if(("${PLATFORM}" STREQUAL "DARWIN"))
   jerry_add_link_flags(-lSystem)
-  set(CMAKE_C_ARCHIVE_CREATE "<CMAKE_AR> Sqc <TARGET> <LINK_FLAGS> <OBJECTS>")
-  set(CMAKE_C_ARCHIVE_FINISH "<CMAKE_RANLIB> -no_warning_for_no_symbols -c <TARGET>")
 else()
   jerry_add_link_flags(-Wl,-z,noexecstack)
 endif()
@@ -205,7 +179,7 @@ jerry_add_compile_flags(-fno-stack-protector)
 endif()
 
 if (USING_GCC OR USING_CLANG)
-  jerry_add_compile_warnings(all extra format-nonliteral init-self conversion sign-conversion format-security missing-declarations shadow strict-prototypes undef old-style-definition)
+  jerry_add_compile_warnings(all extra format-nonliteral init-self conversion sign-conversion format-security missing-declarations shadow strict-prototypes undef)
   jerry_add_compile_flags(-Wno-stack-protector -Wno-attributes)
 endif()
 
@@ -228,13 +202,9 @@ endif()
 
 # Strip binary
 if(ENABLE_STRIP AND NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
-  jerry_add_link_flags(-s)
-endif()
-
-# TODO: Remove workaround for gcc 7 bug if the
-# fallthrough comment detection is fixed.
-if (USING_GCC AND CMAKE_C_COMPILER_VERSION VERSION_GREATER 7.0)
-  jerry_add_compile_flags(-Wno-implicit-fallthrough)
+  if (USING_GCC OR USING_CLANG)
+    jerry_add_link_flags(-s)
+  endif()
 endif()
 
 # External compiler & linker flags
@@ -259,33 +229,12 @@ endif()
 # Jerry's core
 add_subdirectory(jerry-core)
 
-# Jerry's default port implementation
-if(JERRY_PORT_DEFAULT)
-  add_subdirectory(jerry-port/default)
-endif()
-
-# Jerry's extension tools
-if(JERRY_EXT)
-  add_subdirectory(jerry-ext)
-endif()
-
 # Jerry command line tool
-if(JERRY_CMDLINE OR JERRY_CMDLINE_MINIMAL OR JERRY_CMDLINE_SNAPSHOT)
+if(JERRY_CMDLINE OR JERRY_CMDLINE_MINIMAL)
   add_subdirectory(jerry-main)
 endif()
 
 # Unittests
 if(UNITTESTS)
-  add_subdirectory(tests/unit-core)
-  if(JERRY_LIBM)
-    add_subdirectory(tests/unit-libm)
-  endif()
-  if(JERRY_EXT)
-    add_subdirectory(tests/unit-ext)
-  endif()
-endif()
-
-# Doctests
-if(DOCTESTS)
-  add_subdirectory(tests/unit-doc)
+  add_subdirectory(tests/unit)
 endif()

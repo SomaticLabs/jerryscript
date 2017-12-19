@@ -15,7 +15,7 @@
 
 #ifndef ECMA_TYPEDARRAY_OBJECT_H
 #define ECMA_TYPEDARRAY_OBJECT_H
-#ifndef CONFIG_DISABLE_ES2015_TYPEDARRAY_BUILTIN
+#ifndef CONFIG_DISABLE_TYPEDARRAY_BUILTIN
 
 #include "ecma-globals.h"
 
@@ -34,7 +34,6 @@ ecma_value_t ecma_op_typedarray_from (ecma_value_t items_val,
                                       lit_magic_string_id_t class_id);
 ecma_length_t ecma_typedarray_get_length (ecma_object_t *typedarray_p);
 ecma_length_t ecma_typedarray_get_offset (ecma_object_t *typedarray_p);
-lit_utf8_byte_t *ecma_typedarray_get_buffer (ecma_object_t *typedarray_p);
 uint8_t ecma_typedarray_get_element_size_shift (ecma_object_t *typedarray_p);
 ecma_object_t *ecma_typedarray_get_arraybuffer (ecma_object_t *typedarray_p);
 ecma_value_t ecma_op_create_typedarray (const ecma_value_t *arguments_list_p,
@@ -43,11 +42,6 @@ ecma_value_t ecma_op_create_typedarray (const ecma_value_t *arguments_list_p,
                                         uint8_t element_size_shift,
                                         lit_magic_string_id_t class_id);
 bool ecma_is_typedarray (ecma_value_t target);
-void ecma_set_typedarray_element (lit_utf8_byte_t *dst_p,
-                                  ecma_number_t value,
-                                  lit_magic_string_id_t class_id);
-ecma_number_t ecma_get_typedarray_element (lit_utf8_byte_t *src,
-                                           lit_magic_string_id_t class_id);
 void ecma_op_typedarray_list_lazy_property_names (ecma_object_t *obj_p,
                                                   ecma_collection_header_t *main_collection_p);
 ecma_value_t ecma_op_typedarray_get_index_prop (ecma_object_t *obj_p, uint32_t index);
@@ -63,5 +57,5 @@ ecma_value_t ecma_op_create_typedarray_with_type_and_length (ecma_object_t *obj_
  * @}
  */
 
-#endif /* !CONFIG_DISABLE_ES2015_TYPEDARRAY_BUILTIN */
+#endif /* !CONFIG_DISABLE_TYPEDARRAY_BUILTIN */
 #endif /* !ECMA_TYPEDARRAY_OBJECT_H */

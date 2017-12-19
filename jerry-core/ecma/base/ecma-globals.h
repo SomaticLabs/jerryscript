@@ -54,27 +54,15 @@
  */
 
 /**
- * JerryScript init flags.
- */
-typedef enum
-{
-  ECMA_INIT_EMPTY               = (0u),      /**< empty flag set */
-  ECMA_INIT_SHOW_OPCODES        = (1u << 0), /**< dump byte-code to log after parse */
-  ECMA_INIT_SHOW_REGEXP_OPCODES = (1u << 1), /**< dump regexp byte-code to log after compilation */
-  ECMA_INIT_MEM_STATS           = (1u << 2), /**< dump memory statistics */
-} ecma_init_flag_t;
-
-/**
  * Type of ecma value
  */
 typedef enum
 {
-  ECMA_TYPE_DIRECT = 0, /**< directly encoded value, a 28 bit signed integer or a simple value */
-  ECMA_TYPE_FLOAT = 1, /**< pointer to a 64 or 32 bit floating point number */
-  ECMA_TYPE_STRING = 2, /**< pointer to description of a string */
-  ECMA_TYPE_OBJECT = 3, /**< pointer to description of an object */
-  ECMA_TYPE_ERROR = 7, /**< pointer to description of an error reference */
-  ECMA_TYPE___MAX = ECMA_TYPE_ERROR /** highest value for ecma types */
+  ECMA_TYPE_DIRECT, /**< directly encoded value, a 28 bit signed integer or a simple value */
+  ECMA_TYPE_FLOAT, /**< pointer to a 64 or 32 bit floating point number */
+  ECMA_TYPE_STRING, /**< pointer to description of a string */
+  ECMA_TYPE_OBJECT, /**< pointer to description of an object */
+  ECMA_TYPE___MAX = ECMA_TYPE_OBJECT /** highest value for ecma types */
 } ecma_type_t;
 
 /**
@@ -89,12 +77,11 @@ typedef enum
    *   - special register or stack values for vm
    */
   ECMA_SIMPLE_VALUE_EMPTY, /**< uninitialized value */
-  ECMA_SIMPLE_VALUE_ERROR, /**< an error is currently thrown */
+  ECMA_SIMPLE_VALUE_ARRAY_HOLE, /**< array hole, used for initialization of an array literal */
   ECMA_SIMPLE_VALUE_FALSE, /**< boolean false */
   ECMA_SIMPLE_VALUE_TRUE, /**< boolean true */
   ECMA_SIMPLE_VALUE_UNDEFINED, /**< undefined value */
   ECMA_SIMPLE_VALUE_NULL, /**< null value */
-  ECMA_SIMPLE_VALUE_ARRAY_HOLE, /**< array hole, used for initialization of an array literal */
   ECMA_SIMPLE_VALUE_NOT_FOUND, /**< a special value returned by ecma_op_object_find */
   ECMA_SIMPLE_VALUE_REGISTER_REF, /**< register reference, a special "base" value for vm */
   ECMA_SIMPLE_VALUE__COUNT /** count of simple ecma values */
@@ -124,7 +111,12 @@ typedef int32_t ecma_integer_value_t;
 /**
  * Mask for ecma types in ecma_type_t
  */
-#define ECMA_VALUE_TYPE_MASK 0x7u
+#define ECMA_VALUE_TYPE_MASK 0x3u
+
+/**
+ * Error flag in ecma_type_t
+ */
+#define ECMA_VALUE_ERROR_FLAG 0x4u
 
 /**
  * Shift for value part in ecma_type_t
@@ -196,61 +188,12 @@ typedef int32_t ecma_integer_value_t;
  * Checks whether the error flag is set.
  */
 #define ECMA_IS_VALUE_ERROR(value) \
-  (unlikely ((value) == ecma_make_simple_value (ECMA_SIMPLE_VALUE_ERROR)))
+  (unlikely ((value & ECMA_VALUE_ERROR_FLAG) != 0))
 
 /**
  * Representation for native external pointer
  */
 typedef uintptr_t ecma_external_pointer_t;
-
-/**
- * Callback which tells whether the ECMAScript execution should be stopped.
- */
-typedef ecma_value_t (*ecma_vm_exec_stop_callback_t) (void *user_p);
-
-/**
- * Function type for user context deallocation
- */
-typedef void (*ecma_user_context_deinit_t) (void *user_context_p);
-
-/**
- * Type of an external function handler.
- */
-typedef ecma_value_t (*ecma_external_handler_t) (const ecma_value_t function_obj,
-                                                 const ecma_value_t this_val,
-                                                 const ecma_value_t args_p[],
-                                                 const ecma_length_t args_count);
-
-/**
- * Native free callback of an object (deprecated).
- */
-typedef void (*ecma_object_free_callback_t) (const uintptr_t native_p);
-
-/**
- * Native free callback of an object.
- */
-typedef void (*ecma_object_native_free_callback_t) (void *native_p);
-
-/**
- * Type information of a native pointer.
- */
-typedef struct
-{
-  ecma_object_native_free_callback_t free_cb; /**< the free callback of the native pointer */
-} ecma_object_native_info_t;
-
-/**
- * Representation for native pointer data.
- */
-typedef struct
-{
-  void *data_p; /**< points to the data of the object */
-  union
-  {
-    ecma_object_free_callback_t callback_p; /**< callback */
-    ecma_object_native_info_t *info_p; /**< native info */
-  } u;
-} ecma_native_pointer_t;
 
 /**
  * Special property identifiers.
@@ -571,20 +514,16 @@ typedef enum
  */
 typedef enum
 {
-  ECMA_OBJECT_TYPE_GENERAL = 0, /**< all objects that are not belongs to the sub-types below. */
+  ECMA_OBJECT_TYPE_GENERAL = 0, /**< all objects that are not String (15.5),
+                                 *   Function (15.3), Arguments (10.6), Array (15.4) objects */
   ECMA_OBJECT_TYPE_CLASS = 1, /**< Objects with class property */
   ECMA_OBJECT_TYPE_FUNCTION = 2, /**< Function objects (15.3), created through 13.2 routine */
   ECMA_OBJECT_TYPE_EXTERNAL_FUNCTION = 3, /**< External (host) function object */
   ECMA_OBJECT_TYPE_ARRAY = 4, /**< Array object (15.4) */
   ECMA_OBJECT_TYPE_BOUND_FUNCTION = 5, /**< Function objects (15.3), created through 15.3.4.5 routine */
   ECMA_OBJECT_TYPE_PSEUDO_ARRAY  = 6, /**< Array-like object, such as Arguments object (10.6) */
-#ifndef CONFIG_DISABLE_ES2015_ARROW_FUNCTION
-  ECMA_OBJECT_TYPE_ARROW_FUNCTION = 7, /**< arrow function objects */
-#endif /* !CONFIG_DISABLE_ES2015_ARROW_FUNCTION */
 
-  /* Types between 13-15 cannot have a built-in flag. See ecma_lexical_environment_type_t. */
-
-  ECMA_OBJECT_TYPE__MAX /**< maximum value */
+  ECMA_OBJECT_TYPE__MAX = ECMA_OBJECT_TYPE_PSEUDO_ARRAY /**< maximum value */
 } ecma_object_type_t;
 
 /**
@@ -604,11 +543,14 @@ typedef enum
  */
 typedef enum
 {
-  /* Types between 0 - 12 are ecma_object_type_t which can have a built-in flag. */
-
-  ECMA_LEXICAL_ENVIRONMENT_DECLARATIVE = 13, /**< declarative lexical environment */
-  ECMA_LEXICAL_ENVIRONMENT_OBJECT_BOUND = 14, /**< object-bound lexical environment */
-  ECMA_LEXICAL_ENVIRONMENT_THIS_OBJECT_BOUND = 15, /**< object-bound lexical environment
+  /* ECMA_OBJECT_TYPE_GENERAL (0) with built-in flag. */
+  /* ECMA_OBJECT_TYPE_FUNCTION (1) with built-in flag. */
+  /* ECMA_OBJECT_TYPE_EXTERNAL_FUNCTION (2) with built-in flag. */
+  /* ECMA_OBJECT_TYPE_ARRAY (3) with built-in flag. */
+  /* ECMA_OBJECT_TYPE_STRING (4) with built-in flag. */
+  ECMA_LEXICAL_ENVIRONMENT_DECLARATIVE = 5, /**< declarative lexical environment */
+  ECMA_LEXICAL_ENVIRONMENT_OBJECT_BOUND = 6, /**< object-bound lexical environment */
+  ECMA_LEXICAL_ENVIRONMENT_THIS_OBJECT_BOUND = 7, /**< object-bound lexical environment
                                                    *   with provideThis flag */
 
   ECMA_LEXICAL_ENVIRONMENT_TYPE_START = ECMA_LEXICAL_ENVIRONMENT_DECLARATIVE, /**< first lexical
@@ -619,14 +561,19 @@ typedef enum
 /**
  * Ecma object type mask for getting the object type.
  */
-#define ECMA_OBJECT_TYPE_MASK 0x0fu
+#define ECMA_OBJECT_TYPE_MASK 0x07u
 
 /**
- * Ecma object is built-in or lexical environment. When this flag is set, the object is a
+ * Ecma object is built-in or lexical environment.
  *   - built-in, if object type is less than ECMA_LEXICAL_ENVIRONMENT_TYPES_START
  *   - lexical environment, if object type is greater or equal than ECMA_LEXICAL_ENVIRONMENT_TYPES_START
  */
-#define ECMA_OBJECT_FLAG_BUILT_IN_OR_LEXICAL_ENV 0x10
+#define ECMA_OBJECT_FLAG_BUILT_IN_OR_LEXICAL_ENV 0x08
+
+/**
+ * This object is visited by the garbage collector.
+ */
+#define ECMA_OBJECT_FLAG_GC_VISITED 0x10
 
 /**
  * Extensible object.
@@ -649,9 +596,10 @@ typedef enum
  */
 typedef struct
 {
-  /** type : 4 bit : ecma_object_type_t or ecma_lexical_environment_type_t
+  /** type : 3 bit : ecma_object_type_t or ecma_lexical_environment_type_t
                      depending on ECMA_OBJECT_FLAG_BUILT_IN_OR_LEXICAL_ENV
-      flags : 2 bit : ECMA_OBJECT_FLAG_BUILT_IN_OR_LEXICAL_ENV,
+      flags : 3 bit : ECMA_OBJECT_FLAG_BUILT_IN_OR_LEXICAL_ENV,
+                      ECMA_OBJECT_FLAG_GC_VISITED,
                       ECMA_OBJECT_FLAG_EXTENSIBLE
       refs : 10 bit (max 1023) */
   uint16_t type_flags_refs;
@@ -760,10 +708,10 @@ typedef struct
     struct
     {
       ecma_value_t target_function; /**< target function */
-      ecma_value_t args_len_or_this; /**< length of arguments or this value */
+      ecma_length_t args_length; /**< length of arguments */
     } bound_function;
 
-    ecma_external_handler_t external_handler_cb; /**< external function */
+    ecma_external_pointer_t external_function; /**< external function */
   } u;
 } ecma_extended_object_t;
 
@@ -775,21 +723,6 @@ typedef struct
   ecma_extended_object_t extended_object; /**< extended object part */
   ecma_built_in_props_t built_in; /**< built-in object part */
 } ecma_extended_built_in_object_t;
-
-#ifndef CONFIG_DISABLE_ES2015_ARROW_FUNCTION
-
-/**
- * Description of arrow function objects.
- */
-typedef struct
-{
-  ecma_object_t object; /**< object header */
-  ecma_value_t this_binding; /**< value of 'this' binding */
-  jmem_cpointer_t scope_cp; /**< function scope */
-  jmem_cpointer_t bytecode_cp; /**< function byte code */
-} ecma_arrow_function_t;
-
-#endif /* !CONFIG_DISABLE_ES2015_ARROW_FUNCTION */
 
 /**
  * Description of ECMA property descriptor
@@ -1137,15 +1070,6 @@ typedef struct
 } ecma_long_string_t;
 
 /**
- * Representation of a thrown value on API level.
- */
-typedef struct
-{
-  uint32_t refs; /**< reference counter */
-  ecma_value_t value; /**< referenced value */
-} ecma_error_reference_t;
-
-/**
  * Compiled byte code data.
  */
 typedef struct
@@ -1158,6 +1082,21 @@ typedef struct
                                       *    If function, the other flags must be CBC_CODE_FLAGS...
                                       *    If regexp, the other flags must be RE_FLAG... */
 } ecma_compiled_code_t;
+
+/**
+ * An object's GC color
+ *
+ * Tri-color marking:
+ *   WHITE_GRAY, unvisited -> WHITE: not referenced by a live object or the reference not found yet
+ *   WHITE_GRAY, visited   -> GRAY: referenced by some live object
+ *   BLACK                 -> BLACK: all referenced objects are gray or black
+ */
+typedef enum
+{
+  ECMA_GC_COLOR_WHITE_GRAY, /**< white or gray */
+  ECMA_GC_COLOR_BLACK, /**< black */
+  ECMA_GC_COLOR__COUNT /**< number of colors */
+} ecma_gc_color_t;
 
 #ifndef CONFIG_ECMA_PROPERTY_HASHMAP_DISABLE
 
@@ -1218,7 +1157,7 @@ typedef struct
 
 #endif /* !CONFIG_ECMA_LCACHE_DISABLE */
 
-#ifndef CONFIG_DISABLE_ES2015_TYPEDARRAY_BUILTIN
+#ifndef CONFIG_DISABLE_TYPEDARRAY_BUILTIN
 
 /**
  * Some internal properties of TypedArray object.
@@ -1232,7 +1171,7 @@ typedef struct
   ecma_length_t array_length; /**< the array length */
 } ecma_extended_typedarray_object_t;
 
-#endif /* !CONFIG_DISABLE_ES2015_TYPEDARRAY_BUILTIN */
+#endif /* !CONFIG_DISABLE_TYPEDARRAY_BUILTIN */
 /**
  * @}
  * @}

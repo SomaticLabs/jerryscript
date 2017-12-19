@@ -15,8 +15,6 @@
 #ifndef _JERRYSCRIPT_MBED_UTIL_LOGGING_H
 #define _JERRYSCRIPT_MBED_UTIL_LOGGING_H
 
-#include "mbed.h"
-
 #ifdef DEBUG_WRAPPER
 #define LOG_PRINT(...) printf(__VA_ARGS__)
 #else

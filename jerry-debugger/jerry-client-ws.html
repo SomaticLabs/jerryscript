@@ -7,35 +7,27 @@ JerryScript HTML (WebSocket) Debugger Client
 </title>
 <style>
 body {
-  background-color: #feffd6;
   text-align: center;
 }
-
+textarea {
+  margin-bottom: 30px;
+}
 input {
   margin-top: 10px;
-  width: 650px;
-}
-
-textarea {
-  width: 750px;
-  margin-top: 30px;
-  resize: none;
+  width: 657px;
 }
 </style>
 </head>
 <body>
+
 <h2>JerryScript HTML (WebSocket) Debugger Client</h2>
-<div class="container">
-  <div>
-    <textarea readonly rows="16" id="log"></textarea>
-  </div>
-  <p role="alert">Getting help: type <b>help</b> in the command line below.</p>
-  <div>
-    <input id="command" rows="1" type="text" onkeypress="debuggerCommand(event); return true;">
-  <div>
-</div>
+
+<textarea id="log" rows="20" cols="80"></textarea><br>
+
+Getting help: type 'help' in the command line below.<br>
+
+<input id="command" type="text" onkeypress="debuggerCommand(event); return true;">
 <script>
-// Messages sent by the server to client.
 var JERRY_DEBUGGER_CONFIGURATION = 1;
 var JERRY_DEBUGGER_PARSE_ERROR = 2;
 var JERRY_DEBUGGER_BYTE_CODE_CP = 3;
@@ -49,70 +41,34 @@ var JERRY_DEBUGGER_SOURCE_CODE_NAME_END = 10;
 var JERRY_DEBUGGER_FUNCTION_NAME = 11;
 var JERRY_DEBUGGER_FUNCTION_NAME_END = 12;
 var JERRY_DEBUGGER_RELEASE_BYTE_CODE_CP = 13;
-var JERRY_DEBUGGER_MEMSTATS_RECEIVE = 14;
-var JERRY_DEBUGGER_BREAKPOINT_HIT = 15;
-var JERRY_DEBUGGER_EXCEPTION_HIT = 16;
-var JERRY_DEBUGGER_EXCEPTION_STR = 17;
-var JERRY_DEBUGGER_EXCEPTION_STR_END = 18;
-var JERRY_DEBUGGER_BACKTRACE = 19;
-var JERRY_DEBUGGER_BACKTRACE_END = 20;
-var JERRY_DEBUGGER_EVAL_RESULT = 21;
-var JERRY_DEBUGGER_EVAL_RESULT_END = 22;
-var JERRY_DEBUGGER_WAIT_FOR_SOURCE = 23;
-var JERRY_DEBUGGER_OUTPUT_RESULT = 24;
-var JERRY_DEBUGGER_OUTPUT_RESULT_END = 25;
+var JERRY_DEBUGGER_BREAKPOINT_HIT = 14;
+var JERRY_DEBUGGER_BACKTRACE = 15;
+var JERRY_DEBUGGER_BACKTRACE_END = 16;
+var JERRY_DEBUGGER_EVAL_RESULT = 17;
+var JERRY_DEBUGGER_EVAL_RESULT_END = 18;
+var JERRY_DEBUGGER_EVAL_ERROR = 19;
+var JERRY_DEBUGGER_EVAL_ERROR_END = 20;
 
-// Subtypes of eval
-var JERRY_DEBUGGER_EVAL_OK = 1;
-var JERRY_DEBUGGER_EVAL_ERROR = 2;
-
-// Subtypes of output result
-var JERRY_DEBUGGER_OUTPUT_OK = 1;
-var JERRY_DEBUGGER_OUTPUT_ERROR = 2;
-var JERRY_DEBUGGER_OUTPUT_WARNING = 3;
-var JERRY_DEBUGGER_OUTPUT_DEBUG = 4;
-var JERRY_DEBUGGER_OUTPUT_TRACE = 5;
-
-// Messages sent by the client to server.
 var JERRY_DEBUGGER_FREE_BYTE_CODE_CP = 1;
 var JERRY_DEBUGGER_UPDATE_BREAKPOINT = 2;
-var JERRY_DEBUGGER_EXCEPTION_CONFIG = 3;
-var JERRY_DEBUGGER_MEMSTATS = 4;
-var JERRY_DEBUGGER_STOP = 5;
-var JERRY_DEBUGGER_CLIENT_SOURCE = 6;
-var JERRY_DEBUGGER_CLIENT_SOURCE_PART = 7;
-var JERRY_DEBUGGER_NO_MORE_SOURCES = 8;
-var JERRY_DEBUGGER_CONTEXT_RESET = 9;
-var JERRY_DEBUGGER_CONTINUE = 10;
-var JERRY_DEBUGGER_STEP = 11;
-var JERRY_DEBUGGER_NEXT = 12;
-var JERRY_DEBUGGER_GET_BACKTRACE = 13;
-var JERRY_DEBUGGER_EVAL = 14;
-var JERRY_DEBUGGER_EVAL_PART = 15;
+var JERRY_DEBUGGER_STOP = 3;
+var JERRY_DEBUGGER_CONTINUE = 4;
+var JERRY_DEBUGGER_STEP = 5;
+var JERRY_DEBUGGER_NEXT = 6;
+var JERRY_DEBUGGER_GET_BACKTRACE = 7;
+var JERRY_DEBUGGER_EVAL = 8;
+var JERRY_DEBUGGER_EVAL_PART = 9;
 
 var textBox = document.getElementById("log");
 var commandBox = document.getElementById("command");
 var socket = null;
 
-var address = "localhost";
-var params = window.location.search.slice(1).split("&");
-for (var i = 0; i < params.length; i++)
-{
-  var nv = params[i].split("=");
-  var name = nv[0], value = nv[1];
-  if (name == "address")
-  {
-    address = value;
-  }
-}
-
 textBox.value = ""
-commandBox.value = "connect " + address
+commandBox.value = "connect localhost"
 
 function appendLog(str)
 {
   textBox.value += str + "\n";
-  textBox.scrollTop = textBox.scrollHeight;
 }
 
 var debuggerObj = null;
@@ -130,12 +86,8 @@ function DebuggerClient(address)
   var lastBreakpointHit = null;
   var activeBreakpoints = { };
   var nextBreakpointIndex = 1;
-  var pendingBreakpoints = [ ];
   var backtraceFrame = 0;
   var evalResult = null;
-  var outputResult = null;
-  var exceptionData = null;
-  var display = 0;
 
   function assert(expr)
   {
@@ -299,15 +251,9 @@ function DebuggerClient(address)
 
     result += ":" + breakpoint.line;
 
-    if (breakpoint.func.is_func)
+    if (breakpoint.func.name)
     {
-      result += " (in "
-                + (breakpoint.func.name ? breakpoint.func.name : "function")
-                + "() at line:"
-                + breakpoint.func.line
-                + ", col:"
-                + breakpoint.func.column
-                + ")";
+      result += " (in " + breakpoint.func.name + ")";
     }
 
     return result;
@@ -518,66 +464,6 @@ function DebuggerClient(address)
     socket.send(message);
   }
 
-  function releaseFunction(message)
-  {
-    var byte_code_cp = decodeMessage("C", message, 1)[0];
-    var func = functions[byte_code_cp];
-
-    for (var i in func.lines)
-    {
-      lineList.delete(i, func);
-
-      var breakpoint = func.lines[i];
-
-      assert(i == breakpoint.line);
-
-      if (breakpoint.activeIndex >= 0)
-      {
-        delete activeBreakpoints[breakpoint.activeIndex];
-      }
-    }
-
-    delete functions[byte_code_cp];
-
-    message[0] = JERRY_DEBUGGER_FREE_BYTE_CODE_CP;
-    socket.send(message);
-  }
-
-  function getBreakpoint(breakpointData)
-  {
-    var returnValue = {};
-    var func = functions[breakpointData[0]];
-    var offset = breakpointData[1];
-
-    if (offset in func.offsets)
-    {
-      returnValue.breakpoint = func.offsets[offset];
-      returnValue.at = true;
-      return returnValue;
-    }
-
-    if (offset < func.firstBreakpointOffset)
-    {
-      returnValue.breakpoint = func.offsets[func.firstBreakpointOffset];
-      returnValue.at = true;
-      return returnValue;
-    }
-
-    nearest_offset = -1;
-
-    for (var current_offset in func.offsets)
-    {
-      if ((current_offset <= offset) && (current_offset > nearest_offset))
-      {
-        nearest_offset = current_offset;
-      }
-    }
-
-    returnValue.breakpoint = func.offsets[nearest_offset];
-    returnValue.at = false;
-    return returnValue;
-  }
-
   this.encodeMessage = encodeMessage;
 
   function ParseSource()
@@ -587,14 +473,8 @@ function DebuggerClient(address)
     var sourceName = "";
     var sourceNameData = null;
     var functionName = null;
-    var stack = [{ is_func: false,
-                   line: 1,
-                   column: 1,
-                   name: "",
-                   source: "",
-                   lines: [],
-                   offsets: [] }];
-    var newFunctions = { };
+    var stack = [ { name: "", source: "", lines: [], offsets: [] } ];
+    var newFunctions = [ ];
 
     this.receive = function(message)
     {
@@ -640,12 +520,7 @@ function DebuggerClient(address)
 
         case JERRY_DEBUGGER_PARSE_FUNCTION:
         {
-          position = decodeMessage("II", message, 1);
-
-          stack.push({ is_func: true,
-                       line: position[0],
-                       column: position[1],
-                       name: cesu8ToString(functionName),
+          stack.push({ name: cesu8ToString(functionName),
                        source: source,
                        sourceName: sourceName,
                        lines: [],
@@ -688,8 +563,7 @@ function DebuggerClient(address)
           lines = {}
           offsets = {}
 
-          func.firstBreakpointLine = func.lines[0];
-          func.firstBreakpointOffset = func.offsets[0];
+          func.firstLine = (func.lines.length > 0) ? func.lines[0] : -1;
 
           for (var i = 0; i < func.lines.length; i++)
           {
@@ -702,31 +576,16 @@ function DebuggerClient(address)
           func.lines = lines;
           func.offsets = offsets;
 
-          newFunctions[func.byte_code_cp] = func;
+          newFunctions.push(func);
 
           if (stack.length > 0)
           {
             return;
           }
 
-          func.source = source.split(/\r\n|[\r\n]/);
+          func.source = source;
           func.sourceName = sourceName;
           break;
-        }
-
-        case JERRY_DEBUGGER_RELEASE_BYTE_CODE_CP:
-        {
-          var byte_code_cp = decodeMessage("C", message, 1)[0];
-
-          if (byte_code_cp in newFunctions)
-          {
-            delete newFunctions[byte_code_cp];
-          }
-          else
-          {
-            releaseFunction(message);
-          }
-          return;
         }
 
         default:
@@ -736,35 +595,16 @@ function DebuggerClient(address)
         }
       }
 
-      for (var i in newFunctions)
+      for (var i = 0; i < newFunctions.length; i++)
       {
         var func = newFunctions[i];
 
-        functions[i] = func;
+        functions[func.byte_code_cp] = func
 
         for (var j in func.lines)
         {
           lineList.insert(j, func);
         }
-      }
-
-      if (pendingBreakpoints.length != 0)
-      {
-        appendLog("Available pending breakpoints");
-
-        for (var i in pendingBreakpoints)
-        {
-          if (Number.isInteger(pendingBreakpoints[i]))
-          {
-            pendingBreakpoints[i] = sourceName + ":" + pendingBreakpoints[i];
-          }
-          appendLog("Try to add: " + pendingBreakpoints[i]);
-          debuggerObj.setBreakpoint(pendingBreakpoints[i], false);
-        }
-      }
-      else
-      {
-        appendLog("No pending breakpoints");
       }
 
       parseObj = null;
@@ -827,63 +667,45 @@ function DebuggerClient(address)
 
       case JERRY_DEBUGGER_RELEASE_BYTE_CODE_CP:
       {
-        releaseFunction(message);
-        return;
-      }
+        var byte_code_cp = decodeMessage("C", message, 1)[0];
+        var func = functions[byte_code_cp];
 
-      case JERRY_DEBUGGER_MEMSTATS_RECEIVE:
-      {
-        var messagedata = decodeMessage("IIIII", message, 1);
+        for (var i in func.lines)
+        {
+          lineList.delete(i, func);
 
-        appendLog("Allocated bytes: " + messagedata[0]);
-        appendLog("Byte code bytes: " + messagedata[1]);
-        appendLog("String bytes: " + messagedata[2]);
-        appendLog("Object bytes: " + messagedata[3]);
-        appendLog("Property bytes: " + messagedata[4]);
+          var breakpoint = func.lines[i];
+
+          assert(i == breakpoint.line);
+
+          if (breakpoint.activeIndex >= 0)
+          {
+            delete activeBreakpoints[breakpoint.activeIndex];
+          }
+        }
+
+        delete functions[byte_code_cp];
+
+        message[0] = JERRY_DEBUGGER_FREE_BYTE_CODE_CP;
+        socket.send(message);
         return;
       }
 
       case JERRY_DEBUGGER_BREAKPOINT_HIT:
-      case JERRY_DEBUGGER_EXCEPTION_HIT:
       {
-        var breakpointData = decodeMessage("CI", message, 1);
-        var breakpointRef = getBreakpoint(breakpointData);
-        var breakpoint = breakpointRef.breakpoint;
+        var breakpoint = decodeMessage("CI", message, 1);
 
-        if (message[0] == JERRY_DEBUGGER_EXCEPTION_HIT)
-        {
-          appendLog("Exception throw detected (to disable automatic stop type exception 0)");
-          if (exceptionData)
-          {
-            appendLog("Exception hint: " + cesu8ToString(exceptionData));
-            exceptionData = null;
-          }
-        }
+        breakpoint = functions[breakpoint[0]].offsets[breakpoint[1]];
 
         lastBreakpointHit = breakpoint;
 
-        var breakpointInfo = "";
-        if (breakpoint.offset.activeIndex >= 0)
+        breakpointIndex = "";
+        if (breakpoint.activeIndex >= 0)
         {
-          breakpointInfo = " breakpoint:" + breakpoint.offset.activeIndex + " ";
+          breakpointIndex = "breakpoint:" + breakpoint.activeIndex + " ";
         }
 
-        appendLog("Stopped "
-                  + (breakpoint.at ? "at " : "around ")
-                  + breakpointInfo
-                  + breakpointToString(breakpoint));
-
-        if (debuggerObj.display)
-        {
-          debuggerObj.printSource(debuggerObj.display);
-        }
-        return;
-      }
-
-      case JERRY_DEBUGGER_EXCEPTION_STR:
-      case JERRY_DEBUGGER_EXCEPTION_STR_END:
-      {
-        exceptionData = concatUint8Arrays(exceptionData, message);
+        appendLog("Stopped at " + breakpointIndex + breakpointToString(breakpoint));
         return;
       }
 
@@ -892,14 +714,31 @@ function DebuggerClient(address)
       {
         for (var i = 1; i < message.byteLength; i += cpointerSize + 4)
         {
-          var breakpointData = decodeMessage("CI", message, i);
+          var breakpoint = decodeMessage("CI", message, i);
+          var func = functions[breakpoint[0]];
+          var best_offset = -1;
 
-          breakpoint = getBreakpoint(breakpointData).breakpoint;
+          for (var offset in func.offsets)
+          {
+            if (offset <= breakpoint[1] && offset > best_offset)
+            {
+              best_offset = offset;
+            }
+          }
 
-          appendLog("  frame "
-                    + backtraceFrame
-                    + ": "
-                    + breakpointToString(breakpoint));
+          if (best_offset >= 0)
+          {
+            breakpoint = func.offsets[best_offset];
+            appendLog("  frame " + backtraceFrame + ": " + breakpointToString(breakpoint));
+          }
+          else if (func.name)
+          {
+            appendLog("  frame " + backtraceFrame + ": " + func.name + "()");
+          }
+          else
+          {
+            appendLog("  frame " + backtraceFrame + ": <unknown>()");
+          }
 
           ++backtraceFrame;
         }
@@ -913,64 +752,25 @@ function DebuggerClient(address)
 
       case JERRY_DEBUGGER_EVAL_RESULT:
       case JERRY_DEBUGGER_EVAL_RESULT_END:
+      case JERRY_DEBUGGER_EVAL_ERROR:
+      case JERRY_DEBUGGER_EVAL_ERROR_END:
       {
         evalResult = concatUint8Arrays(evalResult, message);
-        var subType = evalResult[evalResult.length - 1];
-        evalResult = evalResult.slice(0, -1);
-        if (subType == JERRY_DEBUGGER_EVAL_OK)
+
+        if (message[0] == JERRY_DEBUGGER_EVAL_RESULT_END)
         {
           appendLog(cesu8ToString(evalResult));
           evalResult = null;
           return;
         }
 
-        if (subType == JERRY_DEBUGGER_EVAL_ERROR)
+        if (message[0] == JERRY_DEBUGGER_EVAL_ERROR_END)
         {
           appendLog("Uncaught exception: " + cesu8ToString(evalResult));
           evalResult = null;
           return;
         }
 
-        return;
-      }
-      case JERRY_DEBUGGER_OUTPUT_RESULT:
-      case JERRY_DEBUGGER_OUTPUT_RESULT_END:
-      {
-        outputResult = concatUint8Arrays(outputResult, message);
-
-        if (message[0] == JERRY_DEBUGGER_OUTPUT_RESULT_END)
-        {
-          var subType = outputResult[outputResult.length - 1];
-          var outString;
-          outputResult = outputResult.slice(0, -1);
-
-          switch (subType)
-          {
-            case JERRY_DEBUGGER_OUTPUT_OK:
-            case JERRY_DEBUGGER_OUTPUT_DEBUG:
-              outString = "out: " + cesu8ToString(outputResult);
-              break;
-            case JERRY_DEBUGGER_OUTPUT_WARNING:
-              outString = "warning: " + cesu8ToString(outputResult);
-              break;
-            case JERRY_DEBUGGER_OUTPUT_ERROR:
-              outString = "err: " + cesu8ToString(outputResult);
-              break;
-            case JERRY_DEBUGGER_OUTPUT_TRACE:
-              outString = "trace: " + cesu8ToString(outputResult);
-              break;
-          }
-
-          appendLog(outString);
-          outputResult = null;
-        }
-
-        return;
-      }
-
-      case JERRY_DEBUGGER_WAIT_FOR_SOURCE:
-      {
-        // This message does not have effect in this client.
         return;
       }
 
@@ -1001,10 +801,9 @@ function DebuggerClient(address)
     appendLog("Breakpoint " + breakpoint.activeIndex + " at " + breakpointToString(breakpoint));
   }
 
-  this.setBreakpoint = function(str, pending)
+  this.setBreakpoint = function(str)
   {
     line = /^(.+):([1-9][0-9]*)$/.exec(str);
-    var found = false;
 
     if (line)
     {
@@ -1020,7 +819,6 @@ function DebuggerClient(address)
             || sourceName.endsWith("\\" + line[1]))
         {
           insertBreakpoint(func.lines[line[2]]);
-          found = true;
         }
       }
     }
@@ -1030,55 +828,12 @@ function DebuggerClient(address)
       {
         var func = functions[i];
 
-        if (func.name == str)
+        if (func.name == str && func.firstLine >= 0)
         {
-          insertBreakpoint(func.lines[func.firstBreakpointLine]);
-          found = true;
+          insertBreakpoint(func.lines[func.firstLine]);
         }
       }
     }
-    if (!found)
-    {
-      appendLog("Breakpoint not found");
-      if (pending)
-      {
-        if (line)
-        {
-          pendingBreakpoints.push(Number(line[2]));
-          appendLog("Pending breakpoint index: " + line[0] + " added");
-        }
-        else
-        {
-          pendingBreakpoints.push(str);
-          appendLog("Pending breakpoint function name: " + str + " added");
-        }
-      }
-    }
-  }
-
-  this.sendExceptionConfig = function(enable)
-  {
-    if (enable == "")
-    {
-      appendLog("Argument required");
-      return;
-    }
-
-    if (enable == 1)
-    {
-      appendLog("Stop at exception enabled");
-    }
-    else if (enable == 0)
-    {
-      appendLog("Stop at exception disabled");
-    }
-    else
-    {
-      appendLog("Invalid input. Usage 1: [Enable] or 0: [Disable].");
-      return;
-    }
-
-    encodeMessage("BB", [ JERRY_DEBUGGER_EXCEPTION_CONFIG, enable ]);
   }
 
   this.deleteBreakpoint = function(index)
@@ -1122,19 +877,6 @@ function DebuggerClient(address)
     appendLog("Breakpoint " + index + " is deleted.");
   }
 
-  this.deletePendingBreakpoint = function(index)
-  {
-    if (index >= pendingBreakpoints.length)
-    {
-      appendLog("Pending breakpoint not found");
-    }
-    else
-    {
-      pendingBreakpoints.splice(index, 1);
-      appendLog("Pending breakpoint " + index + " is deleted.");
-    }
-  }
-
   this.listBreakpoints = function()
   {
     appendLog("List of active breakpoints:");
@@ -1150,57 +892,12 @@ function DebuggerClient(address)
     {
       appendLog("  no active breakpoints");
     }
-
-    if (pendingBreakpoints.length != 0)
-    {
-      appendLog("List of pending breakpoints:");
-      for (var i in pendingBreakpoints)
-      {
-        appendLog("  pending breakpoint " + i + " at " + pendingBreakpoints[i]);
-      }
-    }
-    else {
-      appendLog("No pending breakpoints");
-    }
-  }
-
-  this.sendResumeExec = function(command)
-  {
-    if (!lastBreakpointHit)
-    {
-      appendLog("This command is allowed only if JavaScript execution is stopped at a breakpoint.");
-      return;
-    }
-
-    encodeMessage("B", [ command ]);
-
-    lastBreakpointHit = null;
-  }
-
-  this.sendGetBacktrace = function(depth)
-  {
-    if (!lastBreakpointHit)
-    {
-      appendLog("This command is allowed only if JavaScript execution is stopped at a breakpoint.");
-      return;
-    }
-
-    encodeMessage("BI", [ JERRY_DEBUGGER_GET_BACKTRACE, max_depth ]);
-
-    appendLog("Backtrace:");
   }
 
   this.sendEval = function(str)
   {
-    if (!lastBreakpointHit)
-    {
-      appendLog("This command is allowed only if JavaScript execution is stopped at a breakpoint.");
-      return;
-    }
-
     if (str == "")
     {
-      appendLog("Argument required");
       return;
     }
 
@@ -1225,57 +922,11 @@ function DebuggerClient(address)
     }
   }
 
-  this.printSource = function(line_num)
+  this.printSource = function()
   {
-    if (!lastBreakpointHit)
-      return;
-
-    lines = lastBreakpointHit.func.source;
-    if (line_num === 0)
+    if (lastBreakpointHit)
     {
-      var start = 0;
-      var end = lastBreakpointHit.func.source.length - 1;
-    }
-    else
-    {
-      var start = Math.max(lastBreakpointHit.line - line_num, 0)
-      var end = Math.min(lastBreakpointHit.line + line_num - 1,
-                         lastBreakpointHit.func.source.length - 1)
-    }
-
-    if (lastBreakpointHit.func.sourceName)
-      appendLog("Source: " + lastBreakpointHit.func.sourceName);
-
-    for (i = start; i < end; i++)
-    {
-      var str = (i + 1).toString();
-      while (str.length < 4)
-      {
-        str = " " + str;
-      }
-
-      if (i == lastBreakpointHit.line - 1)
-      {
-        appendLog(str + " > " + lines[i]);
-      }
-      else
-      {
-        appendLog(str + "   " + lines[i]);
-      }
-    }
-  }
-
-  this.srcCheckArgs = function(line_num)
-  {
-    line_num = parseInt(line_num);
-    if (isNaN(line_num) || line_num < 0)
-    {
-      appendLog("Non-negative integer number expected");
-      return -1;
-    }
-    else
-    {
-      return line_num;
+      appendLog(lastBreakpointHit.func.source);
     }
   }
 
@@ -1291,16 +942,7 @@ function DebuggerClient(address)
         sourceName = "<unknown>";
       }
 
-      appendLog("Function 0x"
-                + Number(i).toString(16)
-                + " '"
-                + func.name
-                + "' at "
-                + sourceName
-                + ":"
-                + func.line
-                + ","
-                + func.column);
+      appendLog("Function 0x" + Number(i).toString(16) + " '" + func.name + "' at " + sourceName + ":" + func.firstLine);
 
       for (var j in func.lines)
       {
@@ -1311,7 +953,7 @@ function DebuggerClient(address)
           active = " (active: " + func.lines[j].active + ")";
         }
 
-        appendLog("  Breakpoint line: " + j + " at memory offset: " + func.lines[j].offset + active);
+        appendLog("  Breatpoint line: " + j + " at memory offset: " + func.lines[j].offset + active);
       }
     }
   }
@@ -1345,13 +987,11 @@ function debuggerCommand(event)
     appendLog("Debugger commands:\n" +
               "  connect <IP address:PORT> - connect to server (default is localhost:5001)\n" +
               "  break|b <file_name:line>|<function_name> - set breakpoint\n" +
-              "  fbreak <file_name:line>|<function_name> - set breakpoint if not found, add to pending list\n" +
               "  delete|d <id> - delete breakpoint\n" +
-              "  pendingdel <id> - delete pending breakpoint\n" +
               "  list - list breakpoints\n" +
               "  continue|c - continue execution\n" +
               "  step|s - step-in execution\n" +
-              "  next|n - execution until the next breakpoint\n" +
+              "  next|n - connect to server\n" +
               "  eval|e - evaluate expression\n" +
               "  backtrace|bt <max-depth> - get backtrace\n" +
               "  src - print current source code\n" +
@@ -1406,11 +1046,7 @@ function debuggerCommand(event)
   {
     case "b":
     case "break":
-      debuggerObj.setBreakpoint(args[2], false);
-      break;
-
-    case "fbreak":
-      debuggerObj.setBreakpoint(args[2], true);
+      debuggerObj.setBreakpoint(args[2]);
       break;
 
     case "d":
@@ -1418,32 +1054,23 @@ function debuggerCommand(event)
       debuggerObj.deleteBreakpoint(args[2]);
       break;
 
-    case "pendingdel":
-      debuggerObj.deletePendingBreakpoint(args[2]);
-
-    case "st":
     case "stop":
       debuggerObj.encodeMessage("B", [ JERRY_DEBUGGER_STOP ]);
       break;
 
-    case "ms":
-    case "memstats":
-      debuggerObj.encodeMessage("B", [ JERRY_DEBUGGER_MEMSTATS ]);
-      break;
-
     case "c":
     case "continue":
-      debuggerObj.sendResumeExec(JERRY_DEBUGGER_CONTINUE);
+      debuggerObj.encodeMessage("B", [ JERRY_DEBUGGER_CONTINUE ]);
       break;
 
     case "s":
     case "step":
-      debuggerObj.sendResumeExec(JERRY_DEBUGGER_STEP);
+      debuggerObj.encodeMessage("B", [ JERRY_DEBUGGER_STEP ]);
       break;
 
     case "n":
     case "next":
-      debuggerObj.sendResumeExec(JERRY_DEBUGGER_NEXT);
+      debuggerObj.encodeMessage("B", [ JERRY_DEBUGGER_NEXT ]);
       break;
 
     case "e":
@@ -1468,41 +1095,13 @@ function debuggerCommand(event)
         }
       }
 
-      debuggerObj.sendGetBacktrace(max_depth);
+      appendLog("Backtrace:");
+
+      debuggerObj.encodeMessage("BI", [ JERRY_DEBUGGER_GET_BACKTRACE, max_depth ]);
       break;
 
-    case "exception":
-      debuggerObj.sendExceptionConfig(args[2]);
-      break;
-
-    case "source":
     case "src":
-      if (!args[2])
-      {
-        debuggerObj.printSource(3);
-        break;
-      }
-      var line_num = debuggerObj.srcCheckArgs(args[2]);
-      if (line_num >= 0)
-      {
-        debuggerObj.printSource(line_num);
-        break;
-      }
-      break;
-
-    case "display":
-      if (!args[2])
-      {
-        appendLog("Non-negative integer number expected,\
-                  0 turns off the automatic source code display");
-        break;
-      }
-      var line_num = debuggerObj.srcCheckArgs(args[2]);
-      if (line_num >= 0)
-      {
-        debuggerObj.display = line_num;
-        break;
-      }
+      debuggerObj.printSource();
       break;
 
     case "list":

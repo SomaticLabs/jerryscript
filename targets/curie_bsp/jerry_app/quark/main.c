@@ -30,13 +30,12 @@
 #include "infra/wdt_helper.h"
 
 #include "jerryscript.h"
-#include "jerryscript-port.h"
 #include "string.h"
+#include "jerry-port.h"
 
 #include "zephyr.h"
 #include "microkernel/task.h"
 #include "os/os.h"
-#include "misc/printk.h"
 
 static T_QUEUE queue;
 
@@ -52,7 +51,7 @@ void jerry_resolve_error (jerry_value_t ret_value)
     jerry_char_t *err_str_buf = (jerry_char_t *) balloc (err_str_size, NULL);
     jerry_size_t sz = jerry_string_to_char_buffer (err_str_val, err_str_buf, err_str_size);
     err_str_buf[sz] = 0;
-    printk ("Script Error: unhandled exception: %s\n", err_str_buf);
+    jerry_port_console ("Script Error: unhandled exception: %s\n", err_str_buf);
     bfree(err_str_buf);
     jerry_release_value (err_str_val);
   }
@@ -60,9 +59,9 @@ void jerry_resolve_error (jerry_value_t ret_value)
 
 void help ()
 {
-  printk ("Usage:\n");
-  printk ("js e 'JavaScript Command'\n");
-  printk ("eg. js e print ('Hello World');\n");
+  jerry_port_console ("Usage:\n");
+  jerry_port_console ("js e 'JavaScript Command'\n");
+  jerry_port_console ("eg. js e print ('Hello World');\n");
 }
 
 void eval_jerry_script (int argc, char *argv[], struct tcmd_handler_ctx *ctx)
@@ -80,7 +79,7 @@ void eval_jerry_script (int argc, char *argv[], struct tcmd_handler_ctx *ctx)
     size_t *str_lens = (size_t *) balloc ((argc - 2) * sizeof(size_t), &err);
     if (str_lens == NULL || err != E_OS_OK)
     {
-      printk ("%s: allocate memory failed!", __func__);
+      jerry_port_console ("%s: allocate memory failed!", __func__);
       TCMD_RSP_ERROR (ctx, NULL);
       return;
     }
@@ -93,7 +92,7 @@ void eval_jerry_script (int argc, char *argv[], struct tcmd_handler_ctx *ctx)
     char *buffer = (char *) balloc (str_total_length, &err);
     if (buffer == NULL || err != E_OS_OK)
     {
-      printk ("%s: allocate memory failed!", __func__);
+      jerry_port_console ("%s: allocate memory failed!", __func__);
       TCMD_RSP_ERROR (ctx, NULL);
       return;
     }

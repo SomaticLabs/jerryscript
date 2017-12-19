@@ -21,9 +21,8 @@
 #include "ecma-gc.h"
 #include "ecma-globals.h"
 #include "ecma-helpers.h"
-#include "jmem.h"
 
-#ifndef CONFIG_DISABLE_ES2015_TYPEDARRAY_BUILTIN
+#ifndef CONFIG_DISABLE_ARRAYBUFFER_BUILTIN
 
 /** \addtogroup ecma ECMA
  * @{
@@ -31,6 +30,48 @@
  * \addtogroup ecmaarraybufferobject ECMA ArrayBuffer object related routines
  * @{
  */
+
+/**
+ * ArrayBuffer object creation operation.
+ *
+ * See also: ES2015 24.1.1.1
+ *
+ * @return ecma value
+ *         Returned value must be freed with ecma_free_value
+ */
+ecma_value_t
+ecma_op_create_arraybuffer_object (const ecma_value_t *arguments_list_p, /**< list of arguments that
+                                                                          *   are passed to String constructor */
+                                   ecma_length_t arguments_list_len) /**< length of the arguments' list */
+{
+  JERRY_ASSERT (arguments_list_len == 0 || arguments_list_p != NULL);
+
+  uint32_t length = 0;
+
+  if (arguments_list_len > 0)
+  {
+    ecma_value_t ret = ecma_make_simple_value (ECMA_SIMPLE_VALUE_EMPTY);
+
+    ECMA_OP_TO_NUMBER_TRY_CATCH (num, arguments_list_p[0], ret);
+    length = ecma_number_to_uint32 (num);
+
+    if (num != ((ecma_number_t) length))
+    {
+      return ecma_raise_range_error (ECMA_ERR_MSG ("Invalid ArrayBuffer length."));
+    }
+
+    ECMA_OP_TO_NUMBER_FINALIZE (num);
+
+    if (!ecma_is_value_empty (ret))
+    {
+      return ret;
+    }
+  }
+
+  ecma_object_t *object_p = ecma_arraybuffer_new_object (length);
+
+  return ecma_make_object_value (object_p);
+} /* ecma_op_create_arraybuffer_object */
 
 /**
  * Helper function: create arraybuffer object based on the array length
@@ -61,60 +102,28 @@ ecma_arraybuffer_new_object (ecma_length_t length) /**< length of the arraybuffe
 } /* ecma_arraybuffer_new_object */
 
 /**
- * ArrayBuffer object creation operation.
+ * Helper function: create arraybuffer object by cloning another arraybuffer
  *
- * See also: ES2015 24.1.1.1
+ * See also: ES2015 24.1.1.4
  *
- * @return ecma value
- *         Returned value must be freed with ecma_free_value
+ * @return ecma_object_t *
  */
-ecma_value_t
-ecma_op_create_arraybuffer_object (const ecma_value_t *arguments_list_p, /**< list of arguments that
-                                                                          *   are passed to String constructor */
-                                   ecma_length_t arguments_list_len) /**< length of the arguments' list */
+ecma_object_t *
+ecma_arraybuffer_new_object_by_clone_arraybuffer (ecma_object_t *src_p, /**< the src arraybuffer  */
+                                                  ecma_length_t offset) /**< the offset */
 {
-  JERRY_ASSERT (arguments_list_len == 0 || arguments_list_p != NULL);
+  ecma_length_t length = ecma_arraybuffer_get_length (src_p);
 
-  ecma_number_t length_num = 0;
+  JERRY_ASSERT (offset <= length);
 
-  if (arguments_list_len > 0)
-  {
+  ecma_length_t clone_length = length - offset;
+  ecma_object_t *dst_p = ecma_arraybuffer_new_object (clone_length);
+  lit_utf8_byte_t *src_buf = ecma_arraybuffer_get_buffer (src_p);
+  lit_utf8_byte_t *dst_buf = ecma_arraybuffer_get_buffer (dst_p);
+  memcpy (dst_buf, src_buf + offset, clone_length);
 
-    if (ecma_is_value_number (arguments_list_p[0]))
-    {
-      length_num = ecma_get_number_from_value (arguments_list_p[0]);
-    }
-    else
-    {
-      ecma_value_t to_number_value = ecma_op_to_number (arguments_list_p[0]);
-
-      if (ECMA_IS_VALUE_ERROR (to_number_value))
-      {
-        return to_number_value;
-      }
-
-      length_num = ecma_get_number_from_value (to_number_value);
-
-      ecma_free_value (to_number_value);
-    }
-
-    if (ecma_number_is_nan (length_num))
-    {
-      length_num = 0;
-    }
-
-    const uint32_t maximum_size_in_byte = UINT32_MAX - sizeof (ecma_extended_object_t) - JMEM_ALIGNMENT + 1;
-
-    if (length_num <= -1.0 || length_num > (double) maximum_size_in_byte + 0.5)
-    {
-      return ecma_raise_range_error (ECMA_ERR_MSG ("Invalid ArrayBuffer length."));
-    }
-  }
-
-  uint32_t length_uint32 = ecma_number_to_uint32 (length_num);
-
-  return ecma_make_object_value (ecma_arraybuffer_new_object (length_uint32));
-} /* ecma_op_create_arraybuffer_object */
+  return dst_p;
+} /* ecma_arraybuffer_new_object_by_clone_arraybuffer */
 
 /**
  * Helper function: check if the target is ArrayBuffer
@@ -122,15 +131,21 @@ ecma_op_create_arraybuffer_object (const ecma_value_t *arguments_list_p, /**< li
  *
  * See also: ES2015 24.1.1.4
  *
- * @return true - if value is an ArrayBuffer object
- *         false - otherwise
+ * @return bool True if it is ArrayBuffer
+ *              Flase if it is not Object or it is not ArrayBuffer
  */
 bool
 ecma_is_arraybuffer (ecma_value_t target) /**< the target value */
 {
-  return (ecma_is_value_object (target)
-          && ecma_object_class_is (ecma_get_object_from_value (target),
-                                   LIT_MAGIC_STRING_ARRAY_BUFFER_UL));
+  if (!ecma_is_value_object (target))
+  {
+    return false;
+  }
+
+  ecma_object_t *obj_p = ecma_get_object_from_value (target);
+  lit_magic_string_id_t class_id = ecma_object_get_class_name (obj_p);
+
+  return class_id == LIT_MAGIC_STRING_ARRAY_BUFFER_UL;
 } /* ecma_is_arraybuffer */
 
 /**
@@ -152,7 +167,7 @@ ecma_arraybuffer_get_length (ecma_object_t *object_p) /**< pointer to the ArrayB
  *
  * @return pointer to the data buffer
  */
-inline lit_utf8_byte_t * __attr_pure___ __attr_always_inline___
+lit_utf8_byte_t * __attr_pure___
 ecma_arraybuffer_get_buffer (ecma_object_t *object_p) /**< pointer to the ArrayBuffer object */
 {
   JERRY_ASSERT (ecma_object_class_is (object_p, LIT_MAGIC_STRING_ARRAY_BUFFER_UL));
@@ -165,4 +180,4 @@ ecma_arraybuffer_get_buffer (ecma_object_t *object_p) /**< pointer to the ArrayB
  * @}
  * @}
  */
-#endif /* !CONFIG_DISABLE_ES2015_TYPEDARRAY_BUILTIN */
+#endif /* !CONFIG_DISABLE_ARRAYBUFFER_BUILTIN */

@@ -155,7 +155,7 @@ ecma_op_general_object_delete (ecma_object_t *obj_p, /**< the object */
                                                               ECMA_PROPERTY_GET_NO_OPTIONS);
 
   /* 2. */
-  if (property == ECMA_PROPERTY_TYPE_NOT_FOUND || property == ECMA_PROPERTY_TYPE_NOT_FOUND_AND_STOP)
+  if (property == ECMA_PROPERTY_TYPE_NOT_FOUND && property != ECMA_PROPERTY_TYPE_NOT_FOUND_AND_STOP)
   {
     return ecma_make_simple_value (ECMA_SIMPLE_VALUE_TRUE);
   }
@@ -313,7 +313,9 @@ ecma_op_general_object_define_own_property (ecma_object_t *object_p, /**< the ob
   JERRY_ASSERT (property_desc_p->is_writable_defined || !property_desc_p->is_writable);
 
   /* 1. */
-  ecma_extended_property_ref_t ext_property_ref = { .property_ref.value_p = NULL, .property_p = NULL };
+  /* This #def just gets around the syntax/style checker... */
+#define extended_property_ref_initialization { { 0 } , 0 }
+  ecma_extended_property_ref_t ext_property_ref = extended_property_ref_initialization;
   ecma_property_t current_prop;
 
   current_prop = ecma_op_object_get_own_property (object_p,

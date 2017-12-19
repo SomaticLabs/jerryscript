@@ -67,12 +67,10 @@ typedef enum
 #define LEXER_FLAG_FUNCTION_NAME 0x08
 /* This local identifier is a function argument. */
 #define LEXER_FLAG_FUNCTION_ARGUMENT 0x10
-/* This local identifier is not used in the current context. */
-#define LEXER_FLAG_UNUSED_IDENT 0x20
 /* No space is allocated for this character literal. */
-#define LEXER_FLAG_SOURCE_PTR 0x40
+#define LEXER_FLAG_SOURCE_PTR 0x20
 /* Initialize this variable after the byte code is freed. */
-#define LEXER_FLAG_LATE_INIT 0x80
+#define LEXER_FLAG_LATE_INIT 0x40
 
 /**
  * Literal data.

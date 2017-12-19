@@ -16,10 +16,21 @@
 /*
  * %TypedArrayPrototype% description
  */
+#ifndef NUMBER_VALUE
+# define NUMBER_VALUE(name, number_value, prop_attributes)
+#endif /* !NUMBER_VALUE */
 
-#include "ecma-builtin-helpers-macro-defines.inc.h"
+#ifndef STRING_VALUE
+# define STRING_VALUE(name, magic_string_id, prop_attributes)
+#endif /* !STRING_VALUE */
 
-#ifndef CONFIG_DISABLE_ES2015_TYPEDARRAY_BUILTIN
+#ifndef OBJECT_VALUE
+# define OBJECT_VALUE(name, obj_builtin_id, prop_attributes)
+#endif /* !OBJECT_VALUE */
+
+#ifndef ROUTINE
+# define ROUTINE(name, c_function_name, args_number, length_prop_value)
+#endif /* !ROUTINE */
 
 /* ES2015 22.2.3.4 */
 OBJECT_VALUE (LIT_MAGIC_STRING_CONSTRUCTOR,
@@ -53,8 +64,11 @@ ROUTINE (LIT_MAGIC_STRING_REDUCE, ecma_builtin_typedarray_prototype_reduce, 2, 1
 ROUTINE (LIT_MAGIC_STRING_REDUCE_RIGHT_UL, ecma_builtin_typedarray_prototype_reduce_right, 2, 1)
 ROUTINE (LIT_MAGIC_STRING_FILTER, ecma_builtin_typedarray_prototype_filter, 2, 1)
 ROUTINE (LIT_MAGIC_STRING_REVERSE, ecma_builtin_typedarray_prototype_reverse, 0, 0)
-ROUTINE (LIT_MAGIC_STRING_SET, ecma_builtin_typedarray_prototype_set, 2, 1)
 
-#endif /* !CONFIG_DISABLE_ES2015_TYPEDARRAY_BUILTIN */
-
-#include "ecma-builtin-helpers-macro-undefs.inc.h"
+#undef SIMPLE_VALUE
+#undef NUMBER_VALUE
+#undef STRING_VALUE
+#undef OBJECT_VALUE
+#undef ROUTINE
+#undef ACCESSOR_READ_WRITE
+#undef ACCESSOR_READ_ONLY

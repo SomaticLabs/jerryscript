@@ -16,10 +16,17 @@
 /*
  * UriError built-in description
  */
+#ifndef NUMBER_VALUE
+# define NUMBER_VALUE(name, number_value, prop_attributes)
+#endif /* !NUMBER_VALUE */
 
-#include "ecma-builtin-helpers-macro-defines.inc.h"
+#ifndef STRING_VALUE
+# define STRING_VALUE(name, magic_string_id, prop_attributes)
+#endif /* !STRING_VALUE */
 
-#ifndef CONFIG_DISABLE_ERROR_BUILTINS
+#ifndef OBJECT_VALUE
+# define OBJECT_VALUE(name, obj_builtin_id, prop_attributes)
+#endif /* !OBJECT_VALUE */
 
 /* Number properties:
  *  (property name, number value, writable, enumerable, configurable) */
@@ -37,6 +44,10 @@ OBJECT_VALUE (LIT_MAGIC_STRING_PROTOTYPE,
               ECMA_BUILTIN_ID_URI_ERROR_PROTOTYPE,
               ECMA_PROPERTY_FIXED)
 
-#endif /* !CONFIG_DISABLE_ERROR_BUILTINS */
-
-#include "ecma-builtin-helpers-macro-undefs.inc.h"
+#undef SIMPLE_VALUE
+#undef NUMBER_VALUE
+#undef STRING_VALUE
+#undef OBJECT_VALUE
+#undef ROUTINE
+#undef ACCESSOR_READ_WRITE
+#undef ACCESSOR_READ_ONLY

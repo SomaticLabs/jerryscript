@@ -126,8 +126,7 @@ re_bytecode_list_insert (re_bytecode_ctx_t *bc_ctx_p, /**< RegExp bytecode conte
 inline ecma_char_t __attr_always_inline___
 re_get_char (uint8_t **bc_p) /**< pointer to bytecode start */
 {
-  ecma_char_t chr;
-  memcpy (&chr, *bc_p, sizeof (ecma_char_t));
+  ecma_char_t chr = *((ecma_char_t *) *bc_p);
   (*bc_p) += sizeof (ecma_char_t);
   return chr;
 } /* re_get_char */
@@ -153,8 +152,7 @@ re_get_opcode (uint8_t **bc_p) /**< pointer to bytecode start */
 inline uint32_t __attr_always_inline___
 re_get_value (uint8_t **bc_p) /**< pointer to bytecode start */
 {
-  uint32_t value;
-  memcpy (&value, *bc_p, sizeof (uint32_t));
+  uint32_t value = *((uint32_t *) *bc_p);
   (*bc_p) += sizeof (uint32_t);
   return value;
 } /* re_get_value */

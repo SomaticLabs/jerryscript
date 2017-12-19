@@ -17,36 +17,22 @@
 JERRY=$1
 DEBUGGER_CLIENT=$2
 TEST_CASE=$3
-CLIENT_ARGS=""
 
-if [[ $TEST_CASE == *"client_source"* ]]; then
-  START_DEBUG_SERVER="${JERRY} --start-debug-server --debugger-wait-source &"
-  if [[ $TEST_CASE == *"client_source_multiple"* ]]; then
-    CLIENT_ARGS="--client-source ${TEST_CASE}_2.js ${TEST_CASE}_1.js"
-  else
-    CLIENT_ARGS="--client-source ${TEST_CASE}.js"
-  fi
-else
-  START_DEBUG_SERVER="${JERRY} ${TEST_CASE}.js --start-debug-server &"
-fi
+START_DEBUG_SERVER="${JERRY} ${TEST_CASE}.js --start-debug-server &"
 
 echo "$START_DEBUG_SERVER"
 eval "$START_DEBUG_SERVER"
 sleep 1s
 
-RESULT_TEMP=`mktemp ${TEST_CASE}.out.XXXXXXXXXX`
+RESULT=$((cat "${TEST_CASE}.cmd" | ${DEBUGGER_CLIENT}) 2>&1)
+DIFF=$(diff -u0 ${TEST_CASE}.expected <(echo "$RESULT"))
 
-(cat "${TEST_CASE}.cmd" | ${DEBUGGER_CLIENT} --non-interactive ${CLIENT_ARGS}) &> ${RESULT_TEMP}
-diff -U0 ${TEST_CASE}.expected ${RESULT_TEMP}
-STATUS_CODE=$?
-
-rm -f ${RESULT_TEMP}
-
-if [ ${STATUS_CODE} -ne 0 ]
+if [ -n "$DIFF" ]
 then
-  echo "${TEST_CASE} failed"
-else
-  echo "${TEST_CASE} passed"
+	echo "$DIFF"
+	echo "${TEST_CASE} failed"
+	exit 1
 fi
 
-exit ${STATUS_CODE}
+echo "${TEST_CASE} passed"
+exit 0
